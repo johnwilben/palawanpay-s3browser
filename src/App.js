@@ -29,7 +29,7 @@ const components = {
               </svg>
               Sign in with IAM Identity Center
             </button>
-            <p className="login-footer">Happy Palawan Day! 🌴</p>
+            <p className="login-footer">Happy Palawan Day!</p>
           </div>
         </div>
       );
