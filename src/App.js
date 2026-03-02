@@ -1,41 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { signInWithRedirect } from 'aws-amplify/auth';
+import { signInWithRedirect, fetchAuthSession } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 
-const components = {
-  SignIn: {
-    Footer() {
-      return (
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-          <button
-            onClick={() => signInWithRedirect({ provider: 'IAMIdentityCenter' })}
-            style={{
-              background: '#0066CC',
-              color: 'white',
-              border: 'none',
-              padding: '0.75rem 2rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500'
-            }}
-          >
-            Sign in with IAM Identity Center
-          </button>
-        </div>
-      );
-    }
-  }
-};
-
 function App() {
+  useEffect(() => {
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      try {
+        await fetchAuthSession();
+      } catch {
+        // Not authenticated, redirect to IAM Identity Center
+        signInWithRedirect({ provider: 'IAMIdentityCenter' });
+      }
+    };
+    checkAuth();
+  }, []);
+
   return (
-    <Authenticator loginMechanisms={['email']} components={components}>
+    <Authenticator hideSignUp={true}>
       {({ signOut, user }) => (
         <BrowserRouter>
           <div className="app">
