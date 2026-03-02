@@ -7,8 +7,9 @@ s3 = boto3.client('s3')
 sts = boto3.client('sts')
 
 # Cross-account configuration
+# TODO: Update PRIMARY_ACCOUNT_ID before production deployment
 CROSS_ACCOUNT_ROLES = [
-    {'account': '821276124335', 'role': None},  # Current account
+    {'account': 'PRIMARY_ACCOUNT_ID', 'role': None},  # Primary hosting account - UPDATE THIS
     {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
     {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
 ]
