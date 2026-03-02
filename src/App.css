@@ -96,6 +96,104 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+/* Custom Login Page */
+.custom-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00A651 0%, #008C44 100%);
+  padding: 2rem;
+}
+
+.login-container {
+  background: white;
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  max-width: 450px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-logo {
+  height: 60px;
+  margin-bottom: 1.5rem;
+}
+
+.login-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--palawan-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.login-subtitle {
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.login-button {
+  background: var(--palawan-primary);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.3);
+}
+
+.login-button:hover {
+  background: var(--palawan-secondary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 166, 81, 0.4);
+}
+
+.login-button:active {
+  transform: translateY(0);
+}
+
+.login-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.login-footer {
+  margin-top: 2rem;
+  color: var(--palawan-accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Hide default Amplify UI */
+[data-amplify-authenticator] {
+  --amplify-components-authenticator-router-background-color: transparent;
+  --amplify-components-authenticator-router-border-color: transparent;
+  --amplify-components-authenticator-router-box-shadow: none;
+}
+
 .error {
   background: #FEE;
   border: 1px solid #C00;
