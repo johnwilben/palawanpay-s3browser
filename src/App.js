@@ -13,7 +13,7 @@ const components = {
       return (
         <div style={{ textAlign: 'center', marginTop: '1rem' }}>
           <button
-            onClick={() => signInWithRedirect({ provider: 'EntraID' })}
+            onClick={() => signInWithRedirect({ provider: 'IAMIdentityCenter' })}
             style={{
               background: '#0066CC',
               color: 'white',
@@ -25,7 +25,7 @@ const components = {
               fontWeight: '500'
             }}
           >
-            Sign in with Entra ID
+            Sign in with IAM Identity Center
           </button>
         </div>
       );
