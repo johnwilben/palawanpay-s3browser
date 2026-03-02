@@ -8,8 +8,8 @@ const config = {
         oauth: {
           domain: 'palawanpay-s3browser.auth.ap-southeast-1.amazoncognito.com',
           scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
-          redirectSignIn: ['https://main.drm7arslkowgf.amplifyapp.com/', 'http://localhost:3000/'],
-          redirectSignOut: ['https://main.drm7arslkowgf.amplifyapp.com/', 'http://localhost:3000/'],
+          redirectSignIn: ['https://feature-cross-account-access.drm7arslkowgf.amplifyapp.com/', 'https://main.drm7arslkowgf.amplifyapp.com/', 'http://localhost:3000/'],
+          redirectSignOut: ['https://feature-cross-account-access.drm7arslkowgf.amplifyapp.com/', 'https://main.drm7arslkowgf.amplifyapp.com/', 'http://localhost:3000/'],
           responseType: 'code'
         }
       }

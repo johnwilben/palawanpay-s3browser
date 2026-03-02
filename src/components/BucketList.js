@@ -44,11 +44,12 @@ function BucketList() {
       <div className="bucket-grid">
         {buckets.map(bucket => (
           <div
-            key={bucket.name}
+            key={`${bucket.account}-${bucket.name}`}
             className="bucket-card"
             onClick={() => navigate(`/bucket/${bucket.name}`)}
           >
             <div className="bucket-name">{bucket.name}</div>
+            <div className="bucket-account">Account: {bucket.account}</div>
             <div className="bucket-permissions">
               {bucket.canRead && <span className="permission-badge permission-read">Read</span>}
               {bucket.canWrite && <span className="permission-badge permission-write">Write</span>}
