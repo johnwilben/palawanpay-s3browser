@@ -14,6 +14,85 @@ CROSS_ACCOUNT_ROLES = [
     {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
 ]
 
+# Group-based bucket access control
+# Map Cognito groups to allowed bucket patterns
+BUCKET_ACCESS_RULES = {
+    's3-browser-admin': {
+        'patterns': ['*'],  # Admin can see all buckets
+        'description': 'Full access to all buckets'
+    },
+    's3-browser-datalake': {
+        'patterns': [
+            'datalake-*',
+            'pgcdatalake-*'
+        ],
+        'description': 'Access to data lake buckets'
+    },
+    's3-browser-test': {
+        'patterns': [
+            'test-*',
+            'testing-*'
+        ],
+        'description': 'Access to test buckets'
+    },
+    's3-browser-report': {
+        'patterns': [
+            'report-portal-*',
+            'ppay-report-*'
+        ],
+        'description': 'Access to report buckets'
+    },
+    's3-browser-readonly': {
+        'patterns': ['*'],
+        'readonly': True,
+        'description': 'Read-only access to all buckets'
+    }
+}
+
+def get_user_groups(event):
+    """Extract user groups from Cognito token"""
+    try:
+        # Groups are in the JWT token claims
+        authorizer = event.get('requestContext', {}).get('authorizer', {})
+        claims = authorizer.get('claims', {})
+        
+        # Cognito groups are in 'cognito:groups' claim
+        groups_str = claims.get('cognito:groups', '')
+        if groups_str:
+            groups = groups_str.split(',') if isinstance(groups_str, str) else groups_str
+            return [g.strip() for g in groups]
+        
+        return []
+    except Exception as e:
+        print(f"Error extracting user groups: {str(e)}")
+        return []
+
+def is_bucket_allowed(bucket_name, user_groups):
+    """Check if user's groups allow access to this bucket"""
+    if not user_groups:
+        return False
+    
+    for group in user_groups:
+        if group not in BUCKET_ACCESS_RULES:
+            continue
+        
+        rules = BUCKET_ACCESS_RULES[group]
+        patterns = rules.get('patterns', [])
+        
+        for pattern in patterns:
+            if pattern == '*':
+                return True
+            
+            # Simple wildcard matching
+            if pattern.endswith('*'):
+                prefix = pattern[:-1]
+                if bucket_name.startswith(prefix):
+                    return True
+            elif bucket_name == pattern:
+                return True
+    
+    return False
+
 def get_s3_client(role_arn):
     """Get S3 client for account"""
     if role_arn:
@@ -40,7 +119,7 @@ def get_client_for_bucket(bucket):
             continue
     return s3
 
-def process_account(account_config):
+def process_account(account_config, user_groups):
     """Process single account in parallel"""
     account_id = account_config['account']
     role_arn = account_config['role']
@@ -50,19 +129,32 @@ def process_account(account_config):
         s3_client = get_s3_client(role_arn)
         buckets_response = s3_client.list_buckets()
         
+        print(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
+        print(f"User groups: {user_groups}")
+        
         for bucket in buckets_response.get('Buckets', []):
-            # Check if user actually has access to this bucket
-            permissions = check_permissions(bucket['Name'], s3_client)
+            bucket_name = bucket['Name']
+            
+            # Check if user's groups allow access to this bucket
+            if not is_bucket_allowed(bucket_name, user_groups):
+                print(f"Bucket {bucket_name}: Access denied by group policy")
+                continue
+            
+            # Check actual permissions
+            permissions = check_permissions(bucket_name, s3_client)
+            
             if permissions['canRead']:
                 buckets.append({
-                    'name': bucket['Name'],
+                    'name': bucket_name,
                     'account': account_id,
                     'canRead': permissions['canRead'],
                     'canWrite': permissions['canWrite']
                 })
+                print(f"Bucket {bucket_name}: Allowed")
     except Exception as e:
         print(f"Error accessing account {account_id}: {str(e)}")
     
+    print(f"Account {account_id}: Returning {len(buckets)} accessible buckets")
     return buckets
 
 def lambda_handler(event, context):
@@ -94,11 +186,18 @@ def lambda_handler(event, context):
         return response(500, {'error': str(e)})
 
 def list_buckets(event):
+    # Get user groups from Cognito token
+    user_groups = get_user_groups(event)
+    print(f"User groups from token: {user_groups}")
+    
+    if not user_groups:
+        return response(403, {'error': 'No groups assigned. Contact administrator.'})
+    
     all_buckets = []
     
     # Process all accounts in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(process_account, config) for config in CROSS_ACCOUNT_ROLES]
+        futures = [executor.submit(process_account, config, user_groups) for config in CROSS_ACCOUNT_ROLES]
         
         for future in as_completed(futures):
             try:
@@ -110,6 +209,11 @@ def list_buckets(event):
     return response(200, {'buckets': all_buckets})
 
 def list_objects(bucket, event):
+    # Check if user has access to this bucket
+    user_groups = get_user_groups(event)
+    if not is_bucket_allowed(bucket, user_groups):
+        return response(403, {'error': 'Access denied to this bucket'})
+    
     s3_client = get_client_for_bucket(bucket)
     permissions = check_permissions(bucket, s3_client)
     
@@ -133,6 +237,11 @@ def list_objects(bucket, event):
 
 def generate_upload_url(bucket, event):
     import base64
+    
+    # Check if user has access to this bucket
+    user_groups = get_user_groups(event)
+    if not is_bucket_allowed(bucket, user_groups):
+        return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
     permissions = check_permissions(bucket, s3_client)
@@ -158,6 +267,11 @@ def generate_upload_url(bucket, event):
     return response(400, {'error': 'No file content'})
 
 def generate_download_url(bucket, event):
+    # Check if user has access to this bucket
+    user_groups = get_user_groups(event)
+    if not is_bucket_allowed(bucket, user_groups):
+        return response(403, {'error': 'Access denied to this bucket'})
+    
     s3_client = get_client_for_bucket(bucket)
     permissions = check_permissions(bucket, s3_client)
     
@@ -188,16 +302,18 @@ def check_permissions(bucket, s3_client=None):
     try:
         s3_client.list_objects_v2(Bucket=bucket, MaxKeys=1)
         can_read = True
-        
-        try:
-            s3_client.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
-            s3_client.delete_object(Bucket=bucket, Key='.permission-test')
-            can_write = True
-        except:
-            can_write = False
-    except:
-        can_read = False
+    except Exception as e:
+        # Access denied or bucket doesn't exist
+        return {'canRead': False, 'canWrite': False}
     
+    try:
+        s3_client.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
+        s3_client.delete_object(Bucket=bucket, Key='.permission-test')
+        can_write = True
+    except:
+        can_write = False
+    
+    return {'canRead': can_read, 'canWrite': can_write}
     return {'canRead': can_read, 'canWrite': can_write}
 
 def response(status_code, body):
