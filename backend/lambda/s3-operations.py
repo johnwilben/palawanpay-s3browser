@@ -28,6 +28,17 @@ def get_s3_client(role_arn):
         )
     return s3
 
+def get_client_for_bucket(bucket):
+    """Get correct S3 client for bucket by checking each account"""
+    for config in CROSS_ACCOUNT_ROLES:
+        try:
+            s3_client = get_s3_client(config['role'])
+            s3_client.head_bucket(Bucket=bucket)
+            return s3_client
+        except:
+            continue
+    return s3
+
 def process_account(account_config):
     """Process single account in parallel"""
     account_id = account_config['account']
@@ -95,12 +106,13 @@ def list_buckets(event):
     return response(200, {'buckets': all_buckets})
 
 def list_objects(bucket, event):
-    permissions = check_permissions(bucket)
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
     
     if not permissions['canRead']:
         return response(403, {'error': 'No read access'})
     
-    objects_response = s3.list_objects_v2(Bucket=bucket)
+    objects_response = s3_client.list_objects_v2(Bucket=bucket)
     objects = []
     
     for obj in objects_response.get('Contents', []):
@@ -116,7 +128,10 @@ def list_objects(bucket, event):
     })
 
 def generate_upload_url(bucket, event):
-    permissions = check_permissions(bucket)
+    import base64
+    
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
     
     if not permissions['canWrite']:
         return response(403, {'error': 'No write access'})
@@ -124,24 +139,30 @@ def generate_upload_url(bucket, event):
     body = json.loads(event.get('body', '{}'))
     file_name = body.get('fileName')
     file_type = body.get('fileType', 'application/octet-stream')
+    file_content = body.get('fileContent')
     
-    presigned_url = s3.generate_presigned_url(
-        'put_object',
-        Params={'Bucket': bucket, 'Key': file_name, 'ContentType': file_type},
-        ExpiresIn=3600
-    )
+    if file_content:
+        file_data = base64.b64decode(file_content)
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=file_name,
+            Body=file_data,
+            ContentType=file_type
+        )
+        return response(200, {'success': True})
     
-    return response(200, {'uploadUrl': presigned_url})
+    return response(400, {'error': 'No file content'})
 
 def generate_download_url(bucket, event):
-    permissions = check_permissions(bucket)
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
     
     if not permissions['canRead']:
         return response(403, {'error': 'No read access'})
     
     key = event.get('queryStringParameters', {}).get('key')
     
-    presigned_url = s3.generate_presigned_url(
+    presigned_url = s3_client.generate_presigned_url(
         'get_object',
         Params={
             'Bucket': bucket, 

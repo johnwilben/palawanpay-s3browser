@@ -5,7 +5,8 @@
       "Effect": "Allow",
       "Action": [
         "s3:ListAllMyBuckets",
-        "s3:GetBucketLocation"
+        "s3:GetBucketLocation",
+        "s3:HeadBucket"
       ],
       "Resource": "*"
     },
@@ -26,6 +27,14 @@
         "s3:DeleteObject"
       ],
       "Resource": "arn:aws:s3:::*/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": [
+        "arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole",
+        "arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole"
+      ]
     },
     {
       "Effect": "Allow",
