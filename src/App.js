@@ -44,7 +44,7 @@ function App() {
                 <img src="/PalawanPay logo - Yellow - horizontal stack.png" alt="PalawanPay" style={{height: '40px'}} />
                 <h1 style={{marginLeft: '1rem'}}>S3 Browser</h1>
                 <div className="user-info">
-                  <span>{user?.signInDetails?.loginId || user?.username}</span>
+                  <span>Happy Palawan Day, {user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
                   <button onClick={signOut} className="btn-signout">Sign Out</button>
                 </div>
               </div>
