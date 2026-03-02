@@ -3,6 +3,14 @@ import boto3
 from botocore.exceptions import ClientError
 
 s3 = boto3.client('s3')
+sts = boto3.client('sts')
+
+# Cross-account configuration
+CROSS_ACCOUNT_ROLES = [
+    {'account': '821276124335', 'role': None},  # Current account
+    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
+    {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
+]
 
 def lambda_handler(event, context):
     path = event.get('rawPath') or event.get('path', '')
@@ -33,21 +41,47 @@ def lambda_handler(event, context):
         return response(500, {'error': str(e)})
 
 def list_buckets(event):
-    buckets_response = s3.list_buckets()
-    buckets_with_permissions = []
+    all_buckets = []
     
-    for bucket in buckets_response.get('Buckets', []):
-        bucket_name = bucket['Name']
-        permissions = check_permissions(bucket_name)
+    for account_config in CROSS_ACCOUNT_ROLES:
+        account_id = account_config['account']
+        role_arn = account_config['role']
         
-        if permissions['canRead'] or permissions['canWrite']:
-            buckets_with_permissions.append({
-                'name': bucket_name,
-                'canRead': permissions['canRead'],
-                'canWrite': permissions['canWrite']
-            })
+        try:
+            if role_arn:
+                # Assume cross-account role
+                assumed_role = sts.assume_role(
+                    RoleArn=role_arn,
+                    RoleSessionName='S3BrowserSession'
+                )
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                    aws_session_token=assumed_role['Credentials']['SessionToken']
+                )
+            else:
+                # Use current account credentials
+                s3_client = s3
+            
+            buckets_response = s3_client.list_buckets()
+            
+            for bucket in buckets_response.get('Buckets', []):
+                bucket_name = bucket['Name']
+                permissions = check_permissions(bucket_name, s3_client)
+                
+                if permissions['canRead'] or permissions['canWrite']:
+                    all_buckets.append({
+                        'name': bucket_name,
+                        'account': account_id,
+                        'canRead': permissions['canRead'],
+                        'canWrite': permissions['canWrite']
+                    })
+        except Exception as e:
+            print(f"Error accessing account {account_id}: {str(e)}")
+            continue
     
-    return response(200, {'buckets': buckets_with_permissions})
+    return response(200, {'buckets': all_buckets})
 
 def list_objects(bucket, event):
     permissions = check_permissions(bucket)
@@ -104,17 +138,20 @@ def generate_download_url(bucket, event):
     
     return response(200, {'downloadUrl': presigned_url})
 
-def check_permissions(bucket):
+def check_permissions(bucket, s3_client=None):
+    if s3_client is None:
+        s3_client = s3
+    
     can_read = False
     can_write = False
     
     try:
-        s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
+        s3_client.list_objects_v2(Bucket=bucket, MaxKeys=1)
         can_read = True
         
         try:
-            s3.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
-            s3.delete_object(Bucket=bucket, Key='.permission-test')
+            s3_client.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
+            s3_client.delete_object(Bucket=bucket, Key='.permission-test')
             can_write = True
         except:
             can_write = False

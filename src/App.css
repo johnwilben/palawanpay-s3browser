@@ -118,6 +118,12 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.bucket-account {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
 .bucket-permissions {
   display: flex;
   gap: 0.5rem;
