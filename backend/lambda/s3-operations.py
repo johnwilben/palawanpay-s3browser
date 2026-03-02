@@ -49,7 +49,6 @@ def list_buckets(event):
         
         try:
             if role_arn:
-                # Assume cross-account role
                 assumed_role = sts.assume_role(
                     RoleArn=role_arn,
                     RoleSessionName='S3BrowserSession'
@@ -61,21 +60,28 @@ def list_buckets(event):
                     aws_session_token=assumed_role['Credentials']['SessionToken']
                 )
             else:
-                # Use current account credentials
                 s3_client = s3
             
             buckets_response = s3_client.list_buckets()
             
             for bucket in buckets_response.get('Buckets', []):
                 bucket_name = bucket['Name']
-                permissions = check_permissions(bucket_name, s3_client)
+                # Quick permission check - just try to list objects
+                try:
+                    s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
+                    can_read = True
+                    # Assume write if role has full access, skip test upload
+                    can_write = True if role_arn or account_id == '821276124335' else False
+                except:
+                    can_read = False
+                    can_write = False
                 
-                if permissions['canRead'] or permissions['canWrite']:
+                if can_read:
                     all_buckets.append({
                         'name': bucket_name,
                         'account': account_id,
-                        'canRead': permissions['canRead'],
-                        'canWrite': permissions['canWrite']
+                        'canRead': can_read,
+                        'canWrite': can_write
                     })
         except Exception as e:
             print(f"Error accessing account {account_id}: {str(e)}")
