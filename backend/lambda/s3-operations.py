@@ -51,12 +51,15 @@ def process_account(account_config):
         buckets_response = s3_client.list_buckets()
         
         for bucket in buckets_response.get('Buckets', []):
-            buckets.append({
-                'name': bucket['Name'],
-                'account': account_id,
-                'canRead': True,
-                'canWrite': True
-            })
+            # Check if user actually has access to this bucket
+            permissions = check_permissions(bucket['Name'], s3_client)
+            if permissions['canRead']:
+                buckets.append({
+                    'name': bucket['Name'],
+                    'account': account_id,
+                    'canRead': permissions['canRead'],
+                    'canWrite': permissions['canWrite']
+                })
     except Exception as e:
         print(f"Error accessing account {account_id}: {str(e)}")
     
