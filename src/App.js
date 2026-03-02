@@ -1,28 +1,32 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { signInWithRedirect, fetchAuthSession } from 'aws-amplify/auth';
+import { signInWithRedirect } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 
-function App() {
-  useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuth = async () => {
-      try {
-        await fetchAuthSession();
-      } catch {
-        // Not authenticated, redirect to IAM Identity Center
+const components = {
+  SignIn: {
+    Header() {
+      const handleSignIn = () => {
         signInWithRedirect({ provider: 'IAMIdentityCenter' });
-      }
-    };
-    checkAuth();
-  }, []);
+      };
+      
+      // Auto-trigger sign in
+      React.useEffect(() => {
+        handleSignIn();
+      }, []);
+      
+      return null;
+    }
+  }
+};
 
+function App() {
   return (
-    <Authenticator hideSignUp={true}>
+    <Authenticator hideSignUp={true} components={components}>
       {({ signOut, user }) => (
         <BrowserRouter>
           <div className="app">
