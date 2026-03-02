@@ -91,7 +91,15 @@ function BucketView() {
       }).response;
       
       const data = await response.body.json();
-      window.open(data.downloadUrl, '_blank');
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = data.downloadUrl;
+      link.download = key.split('/').pop(); // Get filename from key
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
       setError(err.message);
     }

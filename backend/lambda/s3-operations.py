@@ -143,7 +143,11 @@ def generate_download_url(bucket, event):
     
     presigned_url = s3.generate_presigned_url(
         'get_object',
-        Params={'Bucket': bucket, 'Key': key},
+        Params={
+            'Bucket': bucket, 
+            'Key': key,
+            'ResponseContentDisposition': f'attachment; filename="{key.split("/")[-1]}"'
+        },
         ExpiresIn=3600
     )
     
