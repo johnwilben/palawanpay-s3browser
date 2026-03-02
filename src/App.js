@@ -41,7 +41,8 @@ function App() {
           <div className="app">
             <header className="app-header">
               <div className="header-content">
-                <h1>PalawanPay S3 Browser</h1>
+                <img src="/PalawanPay logo - Yellow - horizontal stack.png" alt="PalawanPay" style={{height: '40px'}} />
+                <h1 style={{marginLeft: '1rem'}}>S3 Browser</h1>
                 <div className="user-info">
                   <span>{user?.signInDetails?.loginId || user?.username}</span>
                   <button onClick={signOut} className="btn-signout">Sign Out</button>

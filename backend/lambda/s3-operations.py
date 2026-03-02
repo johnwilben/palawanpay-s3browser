@@ -5,8 +5,15 @@ from botocore.exceptions import ClientError
 s3 = boto3.client('s3')
 
 def lambda_handler(event, context):
-    path = event.get('rawPath', '')
-    method = event.get('requestContext', {}).get('http', {}).get('method', '')
+    path = event.get('rawPath') or event.get('path', '')
+    method = event.get('requestContext', {}).get('http', {}).get('method') or event.get('httpMethod', '')
+    
+    # Remove stage from path if present
+    if path.startswith('/prod'):
+        path = path[5:]
+    
+    if method == 'OPTIONS':
+        return response(200, {})
     
     try:
         if path == '/buckets' and method == 'GET':
@@ -102,19 +109,17 @@ def check_permissions(bucket):
     can_write = False
     
     try:
-        s3.head_bucket(Bucket=bucket)
+        s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
         can_read = True
         
-        s3.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
-        s3.delete_object(Bucket=bucket, Key='.permission-test')
-        can_write = True
-    except ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code == '403':
-            can_read = False
-        elif error_code == 'AccessDenied':
-            can_read = True
+        try:
+            s3.put_object(Bucket=bucket, Key='.permission-test', Body=b'')
+            s3.delete_object(Bucket=bucket, Key='.permission-test')
+            can_write = True
+        except:
             can_write = False
+    except:
+        can_read = False
     
     return {'canRead': can_read, 'canWrite': can_write}
 

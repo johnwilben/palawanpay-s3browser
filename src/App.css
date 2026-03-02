@@ -1,7 +1,7 @@
 :root {
-  --palawan-primary: #0066CC;
-  --palawan-secondary: #003D7A;
-  --palawan-accent: #FF6B00;
+  --palawan-primary: #003D7A;
+  --palawan-secondary: #002855;
+  --palawan-accent: #FFB81C;
   --palawan-bg: #F5F7FA;
   --palawan-text: #1A1A1A;
   --palawan-border: #E0E0E0;
@@ -38,11 +38,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
 
 .header-content h1 {
   font-size: 1.5rem;
   font-weight: 600;
+  flex: 1;
 }
 
 .user-info {
