@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { get } from 'aws-amplify/api';
 
+// Cache buckets for 60 seconds
+let cachedBuckets = null;
+let cacheTime = 0;
+const CACHE_DURATION = 60000; // 60 seconds
+
 function BucketList() {
   const [buckets, setBuckets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +20,14 @@ function BucketList() {
 
   const loadBuckets = async () => {
     try {
+      // Check cache first
+      const now = Date.now();
+      if (cachedBuckets && (now - cacheTime) < CACHE_DURATION) {
+        setBuckets(cachedBuckets);
+        setLoading(false);
+        return;
+      }
+
       const session = await fetchAuthSession();
       const response = await get({
         apiName: 'S3BrowserAPI',
@@ -27,7 +40,9 @@ function BucketList() {
       }).response;
       
       const data = await response.body.json();
-      setBuckets(data.buckets || []);
+      cachedBuckets = data.buckets || [];
+      cacheTime = now;
+      setBuckets(cachedBuckets);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,7 +50,12 @@ function BucketList() {
     }
   };
 
-  if (loading) return <div className="loading">Loading buckets...</div>;
+  if (loading) return (
+    <div className="loading">
+      <div className="spinner"></div>
+      <p>Loading buckets from all accounts...</p>
+    </div>
+  );
   if (error) return <div className="error">Error: {error}</div>;
 
   return (

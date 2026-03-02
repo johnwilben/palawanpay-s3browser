@@ -1,6 +1,7 @@
 import json
 import boto3
 from botocore.exceptions import ClientError
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 s3 = boto3.client('s3')
 sts = boto3.client('sts')
@@ -11,6 +12,43 @@ CROSS_ACCOUNT_ROLES = [
     {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
     {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
 ]
+
+def get_s3_client(role_arn):
+    """Get S3 client for account"""
+    if role_arn:
+        assumed_role = sts.assume_role(
+            RoleArn=role_arn,
+            RoleSessionName='S3BrowserSession'
+        )
+        return boto3.client(
+            's3',
+            aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+            aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+            aws_session_token=assumed_role['Credentials']['SessionToken']
+        )
+    return s3
+
+def process_account(account_config):
+    """Process single account in parallel"""
+    account_id = account_config['account']
+    role_arn = account_config['role']
+    buckets = []
+    
+    try:
+        s3_client = get_s3_client(role_arn)
+        buckets_response = s3_client.list_buckets()
+        
+        for bucket in buckets_response.get('Buckets', []):
+            buckets.append({
+                'name': bucket['Name'],
+                'account': account_id,
+                'canRead': True,
+                'canWrite': True
+            })
+    except Exception as e:
+        print(f"Error accessing account {account_id}: {str(e)}")
+    
+    return buckets
 
 def lambda_handler(event, context):
     path = event.get('rawPath') or event.get('path', '')
@@ -43,49 +81,16 @@ def lambda_handler(event, context):
 def list_buckets(event):
     all_buckets = []
     
-    for account_config in CROSS_ACCOUNT_ROLES:
-        account_id = account_config['account']
-        role_arn = account_config['role']
+    # Process all accounts in parallel
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(process_account, config) for config in CROSS_ACCOUNT_ROLES]
         
-        try:
-            if role_arn:
-                assumed_role = sts.assume_role(
-                    RoleArn=role_arn,
-                    RoleSessionName='S3BrowserSession'
-                )
-                s3_client = boto3.client(
-                    's3',
-                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
-                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
-                    aws_session_token=assumed_role['Credentials']['SessionToken']
-                )
-            else:
-                s3_client = s3
-            
-            buckets_response = s3_client.list_buckets()
-            
-            for bucket in buckets_response.get('Buckets', []):
-                bucket_name = bucket['Name']
-                # Quick permission check - just try to list objects
-                try:
-                    s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
-                    can_read = True
-                    # Assume write if role has full access, skip test upload
-                    can_write = True if role_arn or account_id == '821276124335' else False
-                except:
-                    can_read = False
-                    can_write = False
-                
-                if can_read:
-                    all_buckets.append({
-                        'name': bucket_name,
-                        'account': account_id,
-                        'canRead': can_read,
-                        'canWrite': can_write
-                    })
-        except Exception as e:
-            print(f"Error accessing account {account_id}: {str(e)}")
-            continue
+        for future in as_completed(futures):
+            try:
+                buckets = future.result()
+                all_buckets.extend(buckets)
+            except Exception as e:
+                print(f"Error processing account: {str(e)}")
     
     return response(200, {'buckets': all_buckets})
 
