@@ -222,30 +222,18 @@ body {
   --amplify-components-authenticator-router-box-shadow: none;
 }
 
-/* Hide all default Amplify form elements */
-[data-amplify-authenticator] [data-amplify-router] {
+/* Hide the default sign in form but keep our custom header */
+[data-amplify-authenticator] form {
   display: none !important;
-}
-
-/* Only show our custom header */
-[data-amplify-authenticator] [data-amplify-container] {
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 /* Hide sign up tab */
-amplify-tabs,
-[role="tablist"],
-.amplify-tabs {
+[data-amplify-authenticator] [role="tablist"] {
   display: none !important;
 }
 
-/* Hide username/password fields */
-amplify-text-field,
-amplify-password-field,
-.amplify-field,
-.amplify-input,
-.amplify-button[type="submit"] {
+/* Hide footer links */
+[data-amplify-authenticator] [data-amplify-footer] {
   display: none !important;
 }
 
