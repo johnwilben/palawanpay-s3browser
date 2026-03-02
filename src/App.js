@@ -1,14 +1,41 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
+import { signInWithRedirect } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 
+const components = {
+  SignIn: {
+    Footer() {
+      return (
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          <button
+            onClick={() => signInWithRedirect({ provider: 'EntraID' })}
+            style={{
+              background: '#0066CC',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 2rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '500'
+            }}
+          >
+            Sign in with Entra ID
+          </button>
+        </div>
+      );
+    }
+  }
+};
+
 function App() {
   return (
-    <Authenticator loginMechanisms={['email']} socialProviders={['entra']}>
+    <Authenticator loginMechanisms={['email']} components={components}>
       {({ signOut, user }) => (
         <BrowserRouter>
           <div className="app">
