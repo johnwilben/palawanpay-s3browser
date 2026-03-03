@@ -60,7 +60,21 @@ def get_user_groups(event):
         groups_str = claims.get('cognito:groups', '')
         if groups_str:
             groups = groups_str.split(',') if isinstance(groups_str, str) else groups_str
-            return [g.strip() for g in groups]
+            groups = [g.strip() for g in groups]
+            
+            # If user is authenticated via IAM Identity Center but no specific groups,
+            # treat as admin for now (until SAML attribute mapping is configured)
+            if len(groups) == 1 and 'IAMIdentityCenter' in groups[0]:
+                print(f"User authenticated via IAM Identity Center, granting admin access")
+                return ['s3-browser-admin']
+            
+            return groups
+        
+        # No groups found, check if authenticated via IAM Identity Center
+        username = claims.get('cognito:username', '')
+        if 'IAMIdentityCenter' in username:
+            print(f"IAM Identity Center user without groups, granting admin access")
+            return ['s3-browser-admin']
         
         return []
     except Exception as e:
