@@ -16,52 +16,13 @@ Parameters:
     Type: String
     Description: SAML token issuer URL from IAM Identity Center
     Default: 'https://portal.sso.ap-southeast-1.amazonaws.com/saml/assertion/YOUR_ASSERTION_ID'
-  
-  TestBucketName:
-    Type: String
-    Description: Name of test S3 bucket (will be created)
-    Default: 'test-s3browser-access-grants'
 
 Resources:
-  # S3 Bucket for testing
-  TestBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Ref TestBucketName
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders:
-              - '*'
-            AllowedMethods:
-              - GET
-              - PUT
-              - POST
-              - DELETE
-              - HEAD
-            AllowedOrigins:
-              - '*'
-            ExposedHeaders:
-              - ETag
-              - x-amz-meta-*
-            MaxAge: 3000
-
   # S3 Access Grants Instance
   AccessGrantsInstance:
     Type: AWS::S3::AccessGrantsInstance
     Properties:
       IdentityCenterArn: !Ref IAMIdentityCenterInstanceArn
-
-  # S3 Access Grants Location
-  AccessGrantsLocation:
-    Type: AWS::S3::AccessGrantsLocation
-    Properties:
-      IamRoleArn: !GetAtt AccessGrantsRole.Arn
-      LocationScope: !Sub 's3://${TestBucket}/*'
 
   # IAM Role for Access Grants
   AccessGrantsRole:
@@ -230,12 +191,6 @@ Outputs:
     Export:
       Name: S3BrowserApiUrl
   
-  TestBucketName:
-    Description: Test S3 bucket name
-    Value: !Ref TestBucket
-    Export:
-      Name: S3BrowserTestBucket
-  
   AccessGrantsInstanceArn:
     Description: S3 Access Grants Instance ARN
     Value: !GetAtt AccessGrantsInstance.AccessGrantsInstanceArn
@@ -247,3 +202,7 @@ Outputs:
     Value: !GetAtt TokenExchangeFunction.Arn
     Export:
       Name: S3BrowserLambdaArn
+  
+  NextSteps:
+    Description: What to do next
+    Value: 'Create Access Grants for your existing buckets using AWS Console or CLI'
