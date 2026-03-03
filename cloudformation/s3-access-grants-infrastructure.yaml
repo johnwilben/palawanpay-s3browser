@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Browser with Access Grants - Complete Infrastructure'
+
+Parameters:
+  IAMIdentityCenterInstanceArn:
+    Type: String
+    Description: ARN of your IAM Identity Center instance
+    Default: 'arn:aws:sso:::instance/ssoins-YOUR_INSTANCE_ID'
+  
+  IAMIdentityCenterApplicationArn:
+    Type: String
+    Description: ARN of your IAM Identity Center application for S3 Browser
+    Default: 'arn:aws:sso::YOUR_ACCOUNT:application/ssoins-YOUR_INSTANCE_ID/apl-YOUR_APP_ID'
+  
+  TrustedTokenIssuer:
+    Type: String
+    Description: SAML token issuer URL from IAM Identity Center
+    Default: 'https://portal.sso.ap-southeast-1.amazonaws.com/saml/assertion/YOUR_ASSERTION_ID'
+  
+  TestBucketName:
+    Type: String
+    Description: Name of test S3 bucket (will be created)
+    Default: 'test-s3browser-access-grants'
+
+Resources:
+  # S3 Bucket for testing
+  TestBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref TestBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - ETag
+              - x-amz-meta-*
+            MaxAge: 3000
+
+  # S3 Access Grants Instance
+  AccessGrantsInstance:
+    Type: AWS::S3::AccessGrantsInstance
+    Properties:
+      IdentityCenterArn: !Ref IAMIdentityCenterInstanceArn
+
+  # S3 Access Grants Location
+  AccessGrantsLocation:
+    Type: AWS::S3::AccessGrantsLocation
+    Properties:
+      IamRoleArn: !GetAtt AccessGrantsRole.Arn
+      LocationScope: !Sub 's3://${TestBucket}/*'
+
+  # IAM Role for Access Grants
+  AccessGrantsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-09'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: access-grants.s3.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-09'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3AccessGrantsPolicy
+          PolicyDocument:
+            Version: '2012-10-09'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetDataAccess
+                  - sso:DescribeApplication
+                  - sso:DescribeInstance
+                Resource: '*'
+
+  # Token Exchange Lambda Function
+  TokenExchangeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: s3browser-token-exchange
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          IDC_APPLICATION_ARN: !Ref IAMIdentityCenterApplicationArn
+          TRUSTED_TOKEN_ISSUER: !Ref TrustedTokenIssuer
+      Code:
+        ZipFile: |
+          const { S3Client, GetDataAccessCommand } = require('@aws-sdk/client-s3');
+          const jwt = require('jsonwebtoken');
+          
+          const s3Client = new S3Client({});
+          
+          exports.handler = async (event) => {
+            const headers = {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': '*',
+              'Access-Control-Allow-Methods': 'POST, OPTIONS',
+              'Content-Type': 'application/json'
+            };
+            
+            // Handle preflight
+            if (event.httpMethod === 'OPTIONS') {
+              return { statusCode: 200, headers, body: '' };
+            }
+            
+            try {
+              const body = JSON.parse(event.body);
+              const { token, accountId, permission, target } = body;
+              
+              // Decode token to get user identity
+              const decoded = jwt.decode(token);
+              if (!decoded) {
+                throw new Error('Invalid token');
+              }
+              
+              // Get temporary credentials via S3 Access Grants
+              const command = new GetDataAccessCommand({
+                AccountId: accountId,
+                Target: target,
+                Permission: permission,
+                TargetType: 'Object'
+              });
+              
+              const response = await s3Client.send(command);
+              
+              return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                  credentials: response.Credentials
+                })
+              };
+            } catch (error) {
+              console.error('Error:', error);
+              return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ error: error.message })
+              };
+            }
+          };
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: s3browser-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        MaxAge: 300
+
+  # API Gateway Integration
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt TokenExchangeFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  # API Gateway Route
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /exchange'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  # API Gateway Stage
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: prod
+      AutoDeploy: true
+
+  # Lambda Permission for API Gateway
+  LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TokenExchangeFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/exchange'
+    Export:
+      Name: S3BrowserApiUrl
+  
+  TestBucketName:
+    Description: Test S3 bucket name
+    Value: !Ref TestBucket
+    Export:
+      Name: S3BrowserTestBucket
+  
+  AccessGrantsInstanceArn:
+    Description: S3 Access Grants Instance ARN
+    Value: !GetAtt AccessGrantsInstance.AccessGrantsInstanceArn
+    Export:
+      Name: S3BrowserAccessGrantsInstanceArn
+  
+  LambdaFunctionArn:
+    Description: Token Exchange Lambda ARN
+    Value: !GetAtt TokenExchangeFunction.Arn
+    Export:
+      Name: S3BrowserLambdaArn
