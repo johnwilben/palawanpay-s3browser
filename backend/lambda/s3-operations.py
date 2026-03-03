@@ -9,9 +9,8 @@ identitystore = boto3.client('identitystore')
 sso_admin = boto3.client('sso-admin')
 
 # IAM Identity Center configuration
-# TODO: Update these values
-IDENTITY_STORE_ID = 'd-XXXXXXXXXX'  # Your Identity Store ID
-IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-XXXXXXXXXX'
+IDENTITY_STORE_ID = 'd-96677c10e5'
+IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-96677c10e5'
 
 # Cross-account configuration
 CROSS_ACCOUNT_ROLES = [
