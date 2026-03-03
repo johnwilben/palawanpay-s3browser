@@ -14,96 +14,55 @@ CROSS_ACCOUNT_ROLES = [
     {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
 ]
 
-# Group-based bucket access control
-# Map Cognito groups to allowed bucket patterns
-BUCKET_ACCESS_RULES = {
-    's3-browser-admin': {
-        'patterns': ['*'],  # Admin can see all buckets
-        'description': 'Full access to all buckets'
-    },
-    's3-browser-datalake': {
-        'patterns': [
-            'datalake-*',
-            'pgcdatalake-*'
-        ],
-        'description': 'Access to data lake buckets'
-    },
-    's3-browser-test': {
-        'patterns': [
-            'test-*',
-            'testing-*'
-        ],
-        'description': 'Access to test buckets'
-    },
-    's3-browser-report': {
-        'patterns': [
-            'report-portal-*',
-            'ppay-report-*'
-        ],
-        'description': 'Access to report buckets'
-    },
-    's3-browser-readonly': {
-        'patterns': ['*'],
-        'readonly': True,
-        'description': 'Read-only access to all buckets'
-    }
-}
+# Load bucket access configuration
+import os
+config_path = os.path.join(os.path.dirname(__file__), 'bucket-access-config.json')
+with open(config_path, 'r') as f:
+    BUCKET_ACCESS_CONFIG = json.load(f)
 
-def get_user_groups(event):
-    """Extract user groups from Cognito token"""
+def get_user_email(event):
+    """Extract user email from Cognito token"""
     try:
-        # Groups are in the JWT token claims
         authorizer = event.get('requestContext', {}).get('authorizer', {})
         claims = authorizer.get('claims', {})
         
-        # Cognito groups are in 'cognito:groups' claim
-        groups_str = claims.get('cognito:groups', '')
-        if groups_str:
-            groups = groups_str.split(',') if isinstance(groups_str, str) else groups_str
-            groups = [g.strip() for g in groups]
-            
-            # If user is authenticated via IAM Identity Center but no specific groups,
-            # treat as admin for now (until SAML attribute mapping is configured)
-            if len(groups) == 1 and 'IAMIdentityCenter' in groups[0]:
-                print(f"User authenticated via IAM Identity Center, granting admin access")
-                return ['s3-browser-admin']
-            
-            return groups
+        # Try different email fields
+        email = claims.get('email') or claims.get('cognito:username', '')
         
-        # No groups found, check if authenticated via IAM Identity Center
-        username = claims.get('cognito:username', '')
-        if 'IAMIdentityCenter' in username:
-            print(f"IAM Identity Center user without groups, granting admin access")
-            return ['s3-browser-admin']
+        # Remove IAMIdentityCenter_ prefix if present
+        if email.startswith('IAMIdentityCenter_'):
+            email = email.replace('IAMIdentityCenter_', '')
         
-        return []
+        print(f"User email: {email}")
+        return email
     except Exception as e:
-        print(f"Error extracting user groups: {str(e)}")
-        return []
+        print(f"Error extracting user email: {str(e)}")
+        return None
 
-def is_bucket_allowed(bucket_name, user_groups):
-    """Check if user's groups allow access to this bucket"""
-    if not user_groups:
+def is_bucket_allowed_for_user(bucket_name, user_email):
+    """Check if user is allowed to see this bucket"""
+    if not user_email:
         return False
     
-    for group in user_groups:
-        if group not in BUCKET_ACCESS_RULES:
-            continue
+    # Get user's allowed buckets
+    user_config = BUCKET_ACCESS_CONFIG.get('users', {}).get(user_email)
+    if not user_config:
+        print(f"User {user_email} not found in config")
+        return False
+    
+    allowed_patterns = user_config.get('allowedBuckets', [])
+    
+    for pattern in allowed_patterns:
+        if pattern == '*':
+            return True
         
-        rules = BUCKET_ACCESS_RULES[group]
-        patterns = rules.get('patterns', [])
-        
-        for pattern in patterns:
-            if pattern == '*':
+        # Simple wildcard matching
+        if pattern.endswith('*'):
+            prefix = pattern[:-1]
+            if bucket_name.startswith(prefix):
                 return True
-            
-            # Simple wildcard matching
-            if pattern.endswith('*'):
-                prefix = pattern[:-1]
-                if bucket_name.startswith(prefix):
-                    return True
-            elif bucket_name == pattern:
-                return True
+        elif bucket_name == pattern:
+            return True
     
     return False
 
@@ -133,7 +92,7 @@ def get_client_for_bucket(bucket):
             continue
     return s3
 
-def process_account(account_config, user_groups):
+def process_account(account_config, user_email):
     """Process single account in parallel"""
     account_id = account_config['account']
     role_arn = account_config['role']
@@ -144,14 +103,12 @@ def process_account(account_config, user_groups):
         buckets_response = s3_client.list_buckets()
         
         print(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
-        print(f"User groups: {user_groups}")
         
         for bucket in buckets_response.get('Buckets', []):
             bucket_name = bucket['Name']
             
-            # Check if user's groups allow access to this bucket
-            if not is_bucket_allowed(bucket_name, user_groups):
-                print(f"Bucket {bucket_name}: Access denied by group policy")
+            # Check if user is allowed to see this bucket
+            if not is_bucket_allowed_for_user(bucket_name, user_email):
                 continue
             
             # Check actual permissions
@@ -164,7 +121,7 @@ def process_account(account_config, user_groups):
                     'canRead': permissions['canRead'],
                     'canWrite': permissions['canWrite']
                 })
-                print(f"Bucket {bucket_name}: Allowed")
+                print(f"Bucket {bucket_name}: Allowed for {user_email}")
     except Exception as e:
         print(f"Error accessing account {account_id}: {str(e)}")
     
@@ -200,18 +157,21 @@ def lambda_handler(event, context):
         return response(500, {'error': str(e)})
 
 def list_buckets(event):
-    # Get user groups from Cognito token
-    user_groups = get_user_groups(event)
-    print(f"User groups from token: {user_groups}")
+    # Get user email from Cognito token
+    user_email = get_user_email(event)
     
-    if not user_groups:
-        return response(403, {'error': 'No groups assigned. Contact administrator.'})
+    if not user_email:
+        return response(403, {'error': 'Unable to identify user'})
+    
+    # Check if user is in config
+    if user_email not in BUCKET_ACCESS_CONFIG.get('users', {}):
+        return response(403, {'error': f'User {user_email} not authorized. Contact administrator.'})
     
     all_buckets = []
     
     # Process all accounts in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(process_account, config, user_groups) for config in CROSS_ACCOUNT_ROLES]
+        futures = [executor.submit(process_account, config, user_email) for config in CROSS_ACCOUNT_ROLES]
         
         for future in as_completed(futures):
             try:
@@ -224,8 +184,8 @@ def list_buckets(event):
 
 def list_objects(bucket, event):
     # Check if user has access to this bucket
-    user_groups = get_user_groups(event)
-    if not is_bucket_allowed(bucket, user_groups):
+    user_email = get_user_email(event)
+    if not is_bucket_allowed_for_user(bucket, user_email):
         return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
@@ -253,8 +213,8 @@ def generate_upload_url(bucket, event):
     import base64
     
     # Check if user has access to this bucket
-    user_groups = get_user_groups(event)
-    if not is_bucket_allowed(bucket, user_groups):
+    user_email = get_user_email(event)
+    if not is_bucket_allowed_for_user(bucket, user_email):
         return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
@@ -282,8 +242,8 @@ def generate_upload_url(bucket, event):
 
 def generate_download_url(bucket, event):
     # Check if user has access to this bucket
-    user_groups = get_user_groups(event)
-    if not is_bucket_allowed(bucket, user_groups):
+    user_email = get_user_email(event)
+    if not is_bucket_allowed_for_user(bucket, user_email):
         return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)

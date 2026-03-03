@@ -1,0 +1,26 @@
+{
+  "users": {
+    "wilben.s@palawanpay.com": {
+      "allowedBuckets": [
+        "test-*",
+        "testing-*",
+        "datalake-*"
+      ],
+      "description": "Admin - test and datalake buckets"
+    },
+    "john.doe@palawanpay.com": {
+      "allowedBuckets": [
+        "report-*",
+        "ppay-report-*"
+      ],
+      "description": "Reports team"
+    },
+    "jane.smith@palawanpay.com": {
+      "allowedBuckets": [
+        "*"
+      ],
+      "description": "Full admin access"
+    }
+  },
+  "defaultPolicy": "deny"
+}
