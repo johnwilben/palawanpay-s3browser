@@ -39,6 +39,16 @@
     {
       "Effect": "Allow",
       "Action": [
+        "identitystore:ListUsers",
+        "identitystore:DescribeUser",
+        "identitystore:DescribeGroup",
+        "identitystore:ListGroupMembershipsForMember"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents"
