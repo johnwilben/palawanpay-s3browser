@@ -88,11 +88,6 @@ GROUP_BUCKET_ACCESS = {
             {'pattern': 'pgcdatalake-*', 'permission': 'write'}
         ]
     }
-    },
-    's3-browser-reports': {
-        'patterns': ['report-*', 'ppay-report-*'],
-        'permissions': 'read'  # Reports are read-only
-    }
 }
 
 def get_user_email(event):

@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Browser - Complete Infrastructure with IAM Identity Center Integration'
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Description: GitHub repository URL (e.g., https://github.com/username/repo)
+    Default: https://github.com/johnwilben/palawanpay-s3browser
+  
+  GitHubBranch:
+    Type: String
+    Description: GitHub branch to deploy
+    Default: feature/cross-account-access
+  
+  GitHubToken:
+    Type: String
+    Description: GitHub personal access token for Amplify
+    NoEcho: true
+  
+  IdentityStoreId:
+    Type: String
+    Description: IAM Identity Center Identity Store ID (e.g., d-96677c10e5)
+  
+  CognitoUserPoolId:
+    Type: String
+    Description: Existing Cognito User Pool ID for IAM Identity Center SSO
+  
+  CognitoUserPoolClientId:
+    Type: String
+    Description: Existing Cognito User Pool Client ID
+  
+  CognitoUserPoolDomain:
+    Type: String
+    Description: Cognito User Pool Domain (e.g., palawanpay-s3browser)
+  
+  CrossAccountRoleArn1:
+    Type: String
+    Description: Cross-account role ARN for account 1 (leave empty for same account)
+    Default: ''
+  
+  CrossAccountRoleArn2:
+    Type: String
+    Description: Cross-account role ARN for account 2 (optional)
+    Default: ''
+  
+  CrossAccountRoleArn3:
+    Type: String
+    Description: Cross-account role ARN for account 3 (optional)
+    Default: ''
+
+Conditions:
+  HasCrossAccount1: !Not [!Equals [!Ref CrossAccountRoleArn1, '']]
+  HasCrossAccount2: !Not [!Equals [!Ref CrossAccountRoleArn2, '']]
+  HasCrossAccount3: !Not [!Equals [!Ref CrossAccountRoleArn3, '']]
+
+Resources:
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: S3BrowserLambdaRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3BrowserPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketAcl
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - !If [HasCrossAccount1, !Ref CrossAccountRoleArn1, !Ref AWS::NoValue]
+                  - !If [HasCrossAccount2, !Ref CrossAccountRoleArn2, !Ref AWS::NoValue]
+                  - !If [HasCrossAccount3, !Ref CrossAccountRoleArn3, !Ref AWS::NoValue]
+              - Effect: Allow
+                Action:
+                  - identitystore:ListUsers
+                  - identitystore:DescribeUser
+                  - identitystore:ListGroupMemberships
+                  - identitystore:ListGroupMembershipsForMember
+                  - identitystore:DescribeGroup
+                Resource: '*'
+
+  # Lambda Function
+  S3BrowserLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: s3browser-operations
+      Runtime: python3.11
+      Handler: s3-operations.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          IDENTITY_STORE_ID: !Ref IdentityStoreId
+          CROSS_ACCOUNT_ROLE_1: !If [HasCrossAccount1, !Ref CrossAccountRoleArn1, '']
+          CROSS_ACCOUNT_ROLE_2: !If [HasCrossAccount2, !Ref CrossAccountRoleArn2, '']
+          CROSS_ACCOUNT_ROLE_3: !If [HasCrossAccount3, !Ref CrossAccountRoleArn3, '']
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code after stack creation
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'headers': {'Access-Control-Allow-Origin': '*'},
+                  'body': json.dumps({'message': 'Deploy actual Lambda code'})
+              }
+
+  # API Gateway HTTP API
+  S3BrowserAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: S3BrowserAPI
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - '*'
+        MaxAge: 300
+
+  # JWT Authorizer
+  CognitoAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref S3BrowserAPI
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      Name: CognitoAuthorizer
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoUserPoolClientId
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+
+  # Lambda Integration
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref S3BrowserAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${S3BrowserLambda.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+
+  # Default Route (with auth)
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref S3BrowserAPI
+      RouteKey: $default
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+      Target: !Sub integrations/${LambdaIntegration}
+
+  # OPTIONS Route (no auth for CORS)
+  OptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref S3BrowserAPI
+      RouteKey: OPTIONS /{proxy+}
+      AuthorizationType: NONE
+      Target: !Sub integrations/${LambdaIntegration}
+
+  # API Stage
+  APIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref S3BrowserAPI
+      StageName: prod
+      AutoDeploy: true
+
+  # Lambda Permission for API Gateway
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref S3BrowserLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${S3BrowserAPI}/*
+
+  # Amplify App
+  AmplifyApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: S3Browser
+      Repository: !Ref GitHubRepository
+      AccessToken: !Ref GitHubToken
+      BuildSpec: |
+        version: 1
+        frontend:
+          phases:
+            preBuild:
+              commands:
+                - npm ci
+            build:
+              commands:
+                - npm run build
+          artifacts:
+            baseDirectory: build
+            files:
+              - '**/*'
+          cache:
+            paths:
+              - node_modules/**/*
+      EnvironmentVariables:
+        - Name: REACT_APP_API_ENDPOINT
+          Value: !Sub https://${S3BrowserAPI}.execute-api.${AWS::Region}.amazonaws.com/prod
+        - Name: REACT_APP_COGNITO_REGION
+          Value: !Ref AWS::Region
+        - Name: REACT_APP_COGNITO_USER_POOL_ID
+          Value: !Ref CognitoUserPoolId
+        - Name: REACT_APP_COGNITO_CLIENT_ID
+          Value: !Ref CognitoUserPoolClientId
+        - Name: REACT_APP_COGNITO_DOMAIN
+          Value: !Ref CognitoUserPoolDomain
+      IAMServiceRole: !GetAtt AmplifyRole.Arn
+
+  # Amplify Branch
+  AmplifyBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: !Ref GitHubBranch
+      EnableAutoBuild: true
+
+  # Amplify IAM Role
+  AmplifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess-Amplify
+
+Outputs:
+  APIEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${S3BrowserAPI}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Export:
+      Name: !Sub ${AWS::StackName}-APIEndpoint
+
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref S3BrowserLambda
+    Export:
+      Name: !Sub ${AWS::StackName}-LambdaFunction
+
+  AmplifyAppId:
+    Description: Amplify App ID
+    Value: !GetAtt AmplifyApp.AppId
+    Export:
+      Name: !Sub ${AWS::StackName}-AmplifyAppId
+
+  AmplifyURL:
+    Description: Amplify App URL
+    Value: !Sub https://${GitHubBranch}.${AmplifyApp.DefaultDomain}
+    Export:
+      Name: !Sub ${AWS::StackName}-AmplifyURL
+
+  DeploymentInstructions:
+    Description: Next steps to complete deployment
+    Value: !Sub |
+      1. Update Cognito redirect URLs to include: https://${GitHubBranch}.${AmplifyApp.DefaultDomain}
+      2. Deploy Lambda code: aws lambda update-function-code --function-name ${S3BrowserLambda} --zip-file fileb://function.zip
+      3. Create IAM Identity Center groups: s3-browser-admin, s3-browser-datalake, s3-browser-finance, etc.
+      4. Access the app at: https://${GitHubBranch}.${AmplifyApp.DefaultDomain}

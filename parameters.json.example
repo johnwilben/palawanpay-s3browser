@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "GitHubRepository",
+    "ParameterValue": "https://github.com/johnwilben/palawanpay-s3browser"
+  },
+  {
+    "ParameterKey": "GitHubBranch",
+    "ParameterValue": "feature/cross-account-access"
+  },
+  {
+    "ParameterKey": "GitHubToken",
+    "ParameterValue": "REPLACE_WITH_YOUR_GITHUB_TOKEN"
+  },
+  {
+    "ParameterKey": "IdentityStoreId",
+    "ParameterValue": "d-96677c10e5"
+  },
+  {
+    "ParameterKey": "CognitoUserPoolId",
+    "ParameterValue": "ap-southeast-1_YdUsCa38i"
+  },
+  {
+    "ParameterKey": "CognitoUserPoolClientId",
+    "ParameterValue": "19lg9i63etaa6322ml0jv0clqu"
+  },
+  {
+    "ParameterKey": "CognitoUserPoolDomain",
+    "ParameterValue": "palawanpay-s3browser"
+  },
+  {
+    "ParameterKey": "CrossAccountRoleArn1",
+    "ParameterValue": "arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole"
+  },
+  {
+    "ParameterKey": "CrossAccountRoleArn2",
+    "ParameterValue": "arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole"
+  },
+  {
+    "ParameterKey": "CrossAccountRoleArn3",
+    "ParameterValue": ""
+  }
+]
