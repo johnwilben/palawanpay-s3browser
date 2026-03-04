@@ -45,33 +45,32 @@ function BucketView() {
 
     setUploading(true);
     try {
-      const session = await fetchAuthSession();
-      const response = await post({
-        apiName: 'S3BrowserAPI',
-        path: `/buckets/${bucketName}/upload`,
-        options: {
-          headers: {
-            Authorization: `Bearer ${session.tokens.idToken}`
-          },
-          body: {
-            fileName: file.name,
-            fileType: file.type
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target.result.split(',')[1];
+        
+        const session = await fetchAuthSession();
+        await post({
+          apiName: 'S3BrowserAPI',
+          path: `/buckets/${bucketName}/upload`,
+          options: {
+            headers: {
+              Authorization: `Bearer ${session.tokens.idToken}`
+            },
+            body: {
+              fileName: file.name,
+              fileType: file.type,
+              fileContent: base64
+            }
           }
-        }
-      }).response;
-      
-      const data = await response.body.json();
-      
-      await fetch(data.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type }
-      });
-      
-      loadBucketContents();
+        }).response;
+        
+        loadBucketContents();
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       setError(err.message);
-    } finally {
       setUploading(false);
     }
   };
@@ -121,7 +120,14 @@ function BucketView() {
           <li key={file.key} className="file-item">
             <div>
               <div className="file-name">{file.key}</div>
-              <div className="file-size">{(file.size / 1024).toFixed(2)} KB</div>
+              <div className="file-size">
+                {(file.size / 1024).toFixed(2)} KB
+                {file.lastModified && (
+                  <span style={{marginLeft: '1rem', color: '#666'}}>
+                    • Uploaded: {new Date(file.lastModified).toLocaleString()}
+                  </span>
+                )}
+              </div>
             </div>
             <button onClick={() => handleDownload(file.key)} className="btn-download">
               Download

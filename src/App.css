@@ -81,6 +81,162 @@ body {
   color: var(--palawan-secondary);
 }
 
+.spinner {
+  border: 4px solid var(--palawan-border);
+  border-top: 4px solid var(--palawan-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Custom Login Page */
+.custom-login {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00A651 0%, #008C44 100%);
+  padding: 2rem;
+  overflow: auto;
+}
+
+.login-container {
+  text-align: center;
+  max-width: 600px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-logo {
+  height: 120px;
+  margin-bottom: 3rem;
+  background: white;
+  padding: 1.5rem 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.login-title {
+  font-size: 4rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.login-subtitle {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.5rem;
+  margin-bottom: 4rem;
+  line-height: 1.6;
+}
+
+.login-button {
+  background: white;
+  color: var(--palawan-primary);
+  border: none;
+  padding: 1.5rem 3rem;
+  border-radius: 12px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.login-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.login-button:active {
+  transform: translateY(-1px);
+}
+
+.login-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.login-footer {
+  margin-top: 4rem;
+  color: var(--palawan-accent);
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .login-logo {
+    height: 80px;
+    padding: 1rem 2rem;
+  }
+  
+  .login-title {
+    font-size: 2.5rem;
+  }
+  
+  .login-subtitle {
+    font-size: 1.2rem;
+  }
+  
+  .login-button {
+    font-size: 1.2rem;
+    padding: 1.25rem 2.5rem;
+  }
+  
+  .login-footer {
+    font-size: 1.4rem;
+  }
+}
+
+/* Hide default Amplify UI */
+[data-amplify-authenticator] {
+  --amplify-components-authenticator-router-background-color: transparent;
+  --amplify-components-authenticator-router-border-color: transparent;
+  --amplify-components-authenticator-router-box-shadow: none;
+}
+
+/* Hide the default sign in form but keep our custom header */
+[data-amplify-authenticator] form {
+  display: none !important;
+}
+
+/* Hide sign up tab */
+[data-amplify-authenticator] [role="tablist"] {
+  display: none !important;
+}
+
+/* Hide footer links */
+[data-amplify-authenticator] [data-amplify-footer] {
+  display: none !important;
+}
+
 .error {
   background: #FEE;
   border: 1px solid #C00;

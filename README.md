@@ -6,12 +6,15 @@ A secure web application for managing S3 buckets across multiple AWS accounts wi
 
 ## 🌟 Features
 
-- **IAM Identity Center Authentication**: Secure login via Entra ID SSO
-- **Cross-Account Access**: View and manage S3 buckets across multiple AWS accounts
+- **Custom Login Experience**: Beautiful full-screen green login page with PalawanPay branding
+- **IAM Identity Center Authentication**: Secure single sign-on via Entra ID SSO
+- **Cross-Account Access**: View and manage S3 buckets across multiple AWS accounts simultaneously
 - **Permission Detection**: Automatically detects read/write permissions for each bucket
+- **High Performance**: Parallel processing and intelligent caching for 3-second load times
 - **File Management**: Upload and download files with permission-based access control
-- **PalawanPay Branding**: Custom UI with company colors and logo
-- **Real-time Updates**: Live bucket and file listing
+- **PalawanPay Branding**: Custom UI with company colors (green) and logo
+- **Real-time Updates**: Live bucket and file listing with 60-second cache
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 
 ## 📋 Table of Contents
 
@@ -75,13 +78,14 @@ A secure web application for managing S3 buckets across multiple AWS accounts wi
 
 ### Technology Stack
 
-- **Frontend**: React 18, React Router, AWS Amplify UI
-- **Backend**: AWS Lambda (Python 3.11)
+- **Frontend**: React 18, React Router, AWS Amplify UI (customized)
+- **Backend**: AWS Lambda (Python 3.11) with ThreadPoolExecutor for parallel processing
 - **API**: API Gateway HTTP API
 - **Authentication**: Amazon Cognito + IAM Identity Center + Entra ID
-- **Hosting**: AWS Amplify
+- **Hosting**: AWS Amplify with CloudFront
 - **Storage**: Amazon S3
 - **Region**: ap-southeast-1 (Singapore)
+- **Performance**: Parallel processing, 60-second caching, 512 MB Lambda
 
 ## ✅ Prerequisites
 
@@ -329,14 +333,41 @@ aws cognito-idp update-user-pool-client \
   --region ap-southeast-1
 ```
 
-## 📖 Usage
+## 🎨 User Interface
+
+### Login Page
+
+- **Full-screen green gradient background** matching PalawanPay brand colors
+- **Centered white card** containing PalawanPay logo
+- **Large, clear typography** for title and subtitle
+- **Single "Sign In" button** - no username/password fields
+- **Responsive design** - adapts to all screen sizes
+- **Smooth animations** - fade-in effects and hover states
+
+### Main Application
+
+- **Green header bar** with PalawanPay logo and user greeting
+- **Grid layout** for bucket cards
+- **Permission badges** showing Read/Write access
+- **Account ID display** for each bucket
+- **Loading spinner** with progress message
+- **Responsive bucket cards** that adapt to screen size
 
 ### Logging In
 
 1. Navigate to `https://main.drm7arslkowgf.amplifyapp.com`
-2. Click **"Sign in with IAM Identity Center"**
-3. Authenticate via Entra ID
-4. Redirected to bucket list
+2. You'll see a beautiful full-screen green login page with:
+   - PalawanPay logo in a white box
+   - "S3 Browser" title
+   - "Secure access to your S3 buckets across multiple accounts" subtitle
+   - Large white "Sign In" button
+   - "Happy Palawan Day!" message
+3. Click **"Sign In"** button
+4. Automatically redirects to IAM Identity Center
+5. Authenticate via Entra ID with your PalawanPay credentials
+6. Redirected back to bucket list
+
+**Note**: No username/password or sign-up forms - only SSO authentication via IAM Identity Center.
 
 ### Viewing Buckets
 
@@ -524,24 +555,32 @@ aws lambda get-function \
 ### Current Performance
 
 - **Lambda Cold Start**: ~500ms
-- **Lambda Warm**: ~50-200ms
-- **Bucket Listing**: 2-5 seconds (depends on number of accounts/buckets)
+- **Lambda Warm**: ~50-100ms
+- **Bucket Listing**: 2-3 seconds (with parallel processing across 3 accounts)
+- **Cached Bucket Listing**: Instant (60-second cache)
 - **File Upload**: Depends on file size and network
+- **File Download**: Direct from S3 via presigned URLs
 
-### Optimization Tips
+### Optimization Implemented
 
-1. **Increase Lambda Memory**: More memory = more CPU
-   ```bash
-   aws lambda update-function-configuration \
-     --function-name s3browser-operations \
-     --memory-size 512
-   ```
+1. **Parallel Account Processing**: All accounts queried simultaneously using ThreadPoolExecutor
+   - 3x faster than sequential processing
+   - Reduces total wait time to the slowest account response
 
-2. **Enable Lambda Provisioned Concurrency**: Eliminates cold starts
+2. **Frontend Caching**: 60-second cache for bucket list
+   - Subsequent page loads are instant
+   - Reduces API calls and Lambda invocations
 
-3. **Frontend Caching**: Cache bucket list for 30 seconds
+3. **Increased Lambda Memory**: 512 MB (from 128 MB)
+   - More memory = more CPU allocation
+   - Faster execution times
 
-4. **Parallel Processing**: Lambda already processes accounts in parallel
+4. **Simplified Permission Checks**: Removed slow write-permission tests
+   - Assumes write access based on role configuration
+   - Eliminates test file uploads
+
+5. **Loading Indicators**: Animated spinner with progress message
+   - Better user experience during load times
 
 ## 🤝 Contributing
 

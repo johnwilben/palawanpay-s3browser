@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Browser - Cross-Account Access Role'
+
+Parameters:
+  PrimaryAccountId:
+    Type: String
+    Description: AWS Account ID where S3 Browser Lambda is deployed
+    AllowedPattern: '^\d{12}$'
+
+Resources:
+  S3BrowserCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: S3BrowserCrossAccountRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${PrimaryAccountId}:role/S3BrowserLambdaRole
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3BrowserCrossAccountPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketAcl
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: Cross-account role ARN to use in primary account
+    Value: !GetAtt S3BrowserCrossAccountRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-RoleArn

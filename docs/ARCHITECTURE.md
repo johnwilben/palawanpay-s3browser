@@ -100,13 +100,18 @@ PalawanPay S3 Browser is a serverless web application that provides secure acces
 **Technology**: React 18 with React Router
 
 **Key Components**:
-- `App.js`: Main application component with authentication wrapper
-- `BucketList.js`: Displays all accessible buckets
+- `App.js`: Main application component with custom authentication UI
+  - Custom login page with full-screen green gradient
+  - Hides default Amplify UI forms
+  - Auto-redirects to IAM Identity Center
+- `BucketList.js`: Displays all accessible buckets with 60-second caching
 - `BucketView.js`: Shows files within a bucket, handles upload/download
 
 **State Management**: React hooks (useState, useEffect)
 
-**Authentication**: AWS Amplify Authenticator component
+**Authentication**: AWS Amplify Authenticator component (heavily customized)
+
+**Caching**: In-memory cache for bucket list (60-second TTL)
 
 **Routing**:
 - `/` - Bucket list
@@ -146,11 +151,18 @@ PalawanPay S3 Browser is a serverless web application that provides secure acces
 **Handler**: `s3-operations.lambda_handler`
 
 **Key Functions**:
-- `list_buckets()`: Iterates through configured accounts, assumes roles, lists buckets
+- `process_account()`: Processes single account in parallel thread
+- `get_s3_client()`: Creates S3 client with assumed role credentials
+- `list_buckets()`: Uses ThreadPoolExecutor to query all accounts simultaneously
 - `list_objects()`: Lists objects in a specific bucket
-- `check_permissions()`: Tests read/write access to bucket
+- `check_permissions()`: Tests read/write access to bucket (used for file operations only)
 - `generate_upload_url()`: Creates presigned URL for upload
 - `generate_download_url()`: Creates presigned URL for download
+
+**Performance Optimizations**:
+- Parallel processing with ThreadPoolExecutor (max 3 workers)
+- Simplified permission checks (no test uploads during listing)
+- Increased memory allocation (512 MB)
 
 **Environment Variables**: None (configuration in code)
 

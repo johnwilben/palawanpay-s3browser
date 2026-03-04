@@ -1,0 +1,11 @@
+{
+  "users": {
+    "wilben.s@palawanpay.com": {
+      "allowedBuckets": [
+        "*"
+      ],
+      "description": "Admin - full access"
+    }
+  },
+  "defaultPolicy": "deny"
+}
