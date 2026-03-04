@@ -120,7 +120,14 @@ function BucketView() {
           <li key={file.key} className="file-item">
             <div>
               <div className="file-name">{file.key}</div>
-              <div className="file-size">{(file.size / 1024).toFixed(2)} KB</div>
+              <div className="file-size">
+                {(file.size / 1024).toFixed(2)} KB
+                {file.lastModified && (
+                  <span style={{marginLeft: '1rem', color: '#666'}}>
+                    • Uploaded: {new Date(file.lastModified).toLocaleString()}
+                  </span>
+                )}
+              </div>
             </div>
             <button onClick={() => handleDownload(file.key)} className="btn-download">
               Download

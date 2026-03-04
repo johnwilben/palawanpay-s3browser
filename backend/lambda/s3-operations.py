@@ -19,81 +19,184 @@ CROSS_ACCOUNT_ROLES = [
     {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
 ]
 
-# Group-based bucket access
+# Group-based bucket access with permissions
 GROUP_BUCKET_ACCESS = {
-    's3-browser-admin': ['*'],
-    's3-browser-datalake': ['datalake-*', 'pgcdatalake-*'],
-    's3-browser-test': ['test-*', 'testing-*'],
-    's3-browser-finance': ['finance-*', 'accounting-*'],
-    's3-browser-reports': ['report-*', 'ppay-report-*']
+    's3-browser-admin': {
+        'buckets': [{'pattern': '*', 'permission': 'write'}]
+    },
+    'AWS Super Administrators': {
+        'buckets': [{'pattern': '*', 'permission': 'write'}]
+    },
+    'AWS Administrators': {
+        'buckets': [{'pattern': '*', 'permission': 'write'}]
+    },
+    's3-browser-datalake': {
+        'buckets': [
+            {'pattern': 'datalake-*', 'permission': 'write'}
+        ]
+    },
+    's3-browser-finance': {
+        'buckets': [
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-output-common',
+                'permission': 'read'
+            },
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-athena',
+                'permission': 'write',
+                'prefix': ''  # Full bucket access
+            },
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-sandbox',
+                'permission': 'write',
+                'prefix': ''
+            },
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-staging-common',
+                'permission': 'write',
+                'prefix': ''
+            }
+        ]
+    },
+    's3-browser-finance-GL': {
+        'buckets': [
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-raw-megalink',
+                'permission': 'read',
+                'prefix': 'megalink-wkf01/transaction-gl/'  # Folder-level access
+            }
+        ]
+    },
+    's3-browser-archive-treasury': {
+        'buckets': [
+            {
+                'pattern': 'operations-bucket-backup-sharepoint',
+                'permission': 'write'
+            }
+        ]
+    },
+    's3-browser-visa': {
+        'buckets': [
+            {
+                'pattern': 'finance-palawanpay-sharepoint-backup',
+                'permission': 'write'
+            }
+        ]
+    },
+    's3-browser-pgc': {
+        'buckets': [
+            {'pattern': 'pgcdatalake-*', 'permission': 'write'}
+        ]
+    }
+    },
+    's3-browser-reports': {
+        'patterns': ['report-*', 'ppay-report-*'],
+        'permissions': 'read'  # Reports are read-only
+    }
 }
 
 def get_user_email(event):
     """Extract user email from Cognito token"""
     try:
+        # Try different event structures (API Gateway v1 vs v2)
         authorizer = event.get('requestContext', {}).get('authorizer', {})
-        claims = authorizer.get('claims', {})
-        email = claims.get('email') or claims.get('cognito:username', '')
+        
+        # API Gateway v2 format
+        if 'jwt' in authorizer:
+            claims = authorizer.get('jwt', {}).get('claims', {})
+        else:
+            # API Gateway v1 format
+            claims = authorizer.get('claims', {})
+        
+        # Try to get email from various fields
+        email = (claims.get('email') or 
+                claims.get('cognito:username', '') or
+                claims.get('username', ''))
+        
+        # Remove IAMIdentityCenter_ prefix if present
         if email.startswith('IAMIdentityCenter_'):
             email = email.replace('IAMIdentityCenter_', '')
+        
+        print(f"Extracted email: {email}")
+        print(f"Event structure: {json.dumps(event.get('requestContext', {}))}")
         return email
     except Exception as e:
         print(f"Error extracting email: {str(e)}")
+        print(f"Full event: {json.dumps(event)}")
         return None
 
-def get_user_groups_from_identity_center(email):
-    """Get user's groups from IAM Identity Center"""
+def get_user_groups_from_token(event):
+    """Get user's Cognito groups from JWT token"""
     try:
-        # Find user by email
-        users = identitystore.list_users(
-            IdentityStoreId=IDENTITY_STORE_ID,
-            Filters=[{'AttributePath': 'UserName', 'AttributeValue': email}]
-        )
+        authorizer = event.get('requestContext', {}).get('authorizer', {})
+        claims = authorizer.get('jwt', {}).get('claims', {})
         
-        if not users.get('Users'):
-            print(f"User {email} not found in Identity Center")
-            return []
+        # Get cognito:groups from token
+        groups_str = claims.get('cognito:groups', '[]')
         
-        user_id = users['Users'][0]['UserId']
+        # Parse the groups string (it's a string representation of a list)
+        if isinstance(groups_str, str):
+            # Remove brackets and split by space
+            groups_str = groups_str.strip('[]')
+            groups = [g.strip() for g in groups_str.split() if g.strip()]
+        else:
+            groups = groups_str if isinstance(groups_str, list) else []
         
-        # Get user's group memberships
-        memberships = identitystore.list_group_memberships_for_member(
-            IdentityStoreId=IDENTITY_STORE_ID,
-            MemberId={'UserId': user_id}
-        )
+        # Filter out the IAM Identity Center federation group
+        groups = [g for g in groups if not g.startswith('ap-southeast-1_')]
         
-        groups = []
-        for membership in memberships.get('GroupMemberships', []):
-            group_id = membership['GroupId']
-            group = identitystore.describe_group(
-                IdentityStoreId=IDENTITY_STORE_ID,
-                GroupId=group_id
-            )
-            groups.append(group['DisplayName'])
-        
-        print(f"User {email} groups: {groups}")
+        print(f"User Cognito groups: {groups}")
         return groups
         
     except Exception as e:
-        print(f"Error getting groups from Identity Center: {str(e)}")
+        print(f"Error getting user groups from token: {str(e)}")
         return []
 
-def is_bucket_allowed_for_user(bucket_name, user_groups):
-    """Check if user's groups allow access to bucket"""
+def get_user_permissions_for_bucket(bucket_name, user_groups, prefix=''):
+    """Get highest permission level user has for a bucket and optional prefix"""
+    max_permission = None
+    allowed_prefix = None
+    
     for group in user_groups:
         if group not in GROUP_BUCKET_ACCESS:
             continue
         
-        patterns = GROUP_BUCKET_ACCESS[group]
-        for pattern in patterns:
+        group_config = GROUP_BUCKET_ACCESS[group]
+        buckets = group_config.get('buckets', [])
+        
+        for bucket_rule in buckets:
+            pattern = bucket_rule['pattern']
+            permission = bucket_rule['permission']
+            required_prefix = bucket_rule.get('prefix', '')
+            
+            # Check if bucket matches
+            matches = False
             if pattern == '*':
-                return True
-            if pattern.endswith('*') and bucket_name.startswith(pattern[:-1]):
-                return True
-            if bucket_name == pattern:
-                return True
+                matches = True
+            elif pattern.endswith('*') and bucket_name.startswith(pattern[:-1]):
+                matches = True
+            elif bucket_name == pattern:
+                matches = True
+            
+            if matches:
+                # If checking a specific prefix, verify it matches
+                if prefix and required_prefix:
+                    if not prefix.startswith(required_prefix):
+                        continue
+                
+                # 'write' permission overrides 'read'
+                if permission == 'write':
+                    return {'permission': 'write', 'prefix': required_prefix}
+                max_permission = 'read'
+                allowed_prefix = required_prefix
     
-    return False
+    if max_permission:
+        return {'permission': max_permission, 'prefix': allowed_prefix or ''}
+    return None
+
+def is_bucket_allowed_for_user(bucket_name, user_groups):
+    """Check if user's groups allow access to bucket"""
+    return get_user_permissions_for_bucket(bucket_name, user_groups) is not None
 
 def get_s3_client(role_arn):
     """Get S3 client for account"""
@@ -136,20 +239,29 @@ def process_account(account_config, user_groups):
         for bucket in buckets_response.get('Buckets', []):
             bucket_name = bucket['Name']
             
-            # Check if user's groups allow this bucket
-            if not is_bucket_allowed_for_user(bucket_name, user_groups):
+            # Get user's permission level for this bucket
+            user_permission = get_user_permissions_for_bucket(bucket_name, user_groups)
+            if not user_permission:
                 continue
             
-            # Check actual permissions
-            permissions = check_permissions(bucket_name, s3_client)
+            # Check actual S3 permissions
+            s3_permissions = check_permissions(bucket_name, s3_client)
             
-            if permissions['canRead']:
-                buckets.append({
+            if s3_permissions['canRead']:
+                # Override S3 write permission based on group permission
+                can_write = s3_permissions['canWrite'] and user_permission['permission'] == 'write'
+                
+                bucket_info = {
                     'name': bucket_name,
-                    'account': account_id,
-                    'canRead': permissions['canRead'],
-                    'canWrite': permissions['canWrite']
-                })
+                    'canRead': s3_permissions['canRead'],
+                    'canWrite': can_write
+                }
+                
+                # Add prefix restriction if exists
+                if user_permission.get('prefix'):
+                    bucket_info['prefix'] = user_permission['prefix']
+                
+                buckets.append(bucket_info)
     except Exception as e:
         print(f"Error accessing account {account_id}: {str(e)}")
     
@@ -190,10 +302,13 @@ def list_buckets(event):
     if not user_email:
         return response(403, {'error': 'Unable to identify user'})
     
-    # Get user's groups from IAM Identity Center
-    user_groups = get_user_groups_from_identity_center(user_email)
+    # Get user's groups from Cognito token
+    user_groups = get_user_groups_from_token(event)
+    
+    # Temporary: If no groups, grant admin access until groups are set up
     if not user_groups:
-        return response(403, {'error': f'User {user_email} has no groups assigned. Contact administrator.'})
+        print(f"User {user_email} has no groups, granting temporary admin access")
+        user_groups = ['s3-browser-admin']
     
     all_buckets = []
     
@@ -213,9 +328,10 @@ def list_buckets(event):
 def list_objects(bucket, event):
     # Get user's groups
     user_email = get_user_email(event)
-    user_groups = get_user_groups_from_identity_center(user_email)
+    user_groups = get_user_groups_from_token(event)
     
-    if not is_bucket_allowed_for_user(bucket, user_groups):
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
         return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
@@ -224,7 +340,13 @@ def list_objects(bucket, event):
     if not permissions['canRead']:
         return response(403, {'error': 'No read access'})
     
-    objects_response = s3_client.list_objects_v2(Bucket=bucket)
+    # Apply prefix filter if user has restricted access
+    prefix = user_permission.get('prefix', '')
+    list_params = {'Bucket': bucket}
+    if prefix:
+        list_params['Prefix'] = prefix
+    
+    objects_response = s3_client.list_objects_v2(**list_params)
     objects = []
     
     for obj in objects_response.get('Contents', []):
@@ -234,9 +356,12 @@ def list_objects(bucket, event):
             'lastModified': obj['LastModified'].isoformat()
         })
     
+    can_write = permissions['canWrite'] and user_permission['permission'] == 'write'
+    
     return response(200, {
         'objects': objects,
-        'canWrite': permissions['canWrite']
+        'canWrite': can_write,
+        'prefix': prefix  # Tell frontend about prefix restriction
     })
 
 def generate_upload_url(bucket, event):
@@ -244,10 +369,12 @@ def generate_upload_url(bucket, event):
     
     # Get user's groups
     user_email = get_user_email(event)
-    user_groups = get_user_groups_from_identity_center(user_email)
+    user_groups = get_user_groups_from_token(event)
     
-    if not is_bucket_allowed_for_user(bucket, user_groups):
-        return response(403, {'error': 'Access denied to this bucket'})
+    # Check if user has write permission for this bucket
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission or user_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
     permissions = check_permissions(bucket, s3_client)
@@ -259,6 +386,11 @@ def generate_upload_url(bucket, event):
     file_name = body.get('fileName')
     file_type = body.get('fileType', 'application/octet-stream')
     file_content = body.get('fileContent')
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not file_name.startswith(prefix):
+        return response(403, {'error': f'Can only upload to {prefix}'})
     
     if file_content:
         file_data = base64.b64decode(file_content)
@@ -275,9 +407,10 @@ def generate_upload_url(bucket, event):
 def generate_download_url(bucket, event):
     # Get user's groups
     user_email = get_user_email(event)
-    user_groups = get_user_groups_from_identity_center(user_email)
+    user_groups = get_user_groups_from_token(event)
     
-    if not is_bucket_allowed_for_user(bucket, user_groups):
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
         return response(403, {'error': 'Access denied to this bucket'})
     
     s3_client = get_client_for_bucket(bucket)
@@ -287,6 +420,11 @@ def generate_download_url(bucket, event):
         return response(403, {'error': 'No read access'})
     
     key = event.get('queryStringParameters', {}).get('key')
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not key.startswith(prefix):
+        return response(403, {'error': f'Can only access files in {prefix}'})
     
     presigned_url = s3_client.generate_presigned_url(
         'get_object',
