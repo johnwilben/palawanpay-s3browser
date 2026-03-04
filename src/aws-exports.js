@@ -6,14 +6,8 @@ const awsconfig = {
   oauth: {
     domain: 's3browser-721010870103.auth.ap-southeast-1.amazoncognito.com',
     scope: ['openid', 'email', 'profile'],
-    redirectSignIn: [
-      'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/',
-      'http://localhost:3000/'
-    ],
-    redirectSignOut: [
-      'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/',
-      'http://localhost:3000/'
-    ],
+    redirectSignIn: 'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/,http://localhost:3000/',
+    redirectSignOut: 'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/,http://localhost:3000/',
     responseType: 'code'
   }
 };
