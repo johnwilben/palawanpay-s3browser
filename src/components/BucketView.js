@@ -16,7 +16,8 @@ function BucketView() {
   const [pathParts, setPathParts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name-asc');
-  const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'list');
+  const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'grid');
+  const [selectedFiles, setSelectedFiles] = useState([]);
 
   useEffect(() => {
     loadBucketContents(currentPrefix);
@@ -124,6 +125,55 @@ function BucketView() {
   const toggleViewMode = (mode) => {
     setViewMode(mode);
     localStorage.setItem('viewMode', mode);
+  };
+
+  const toggleFileSelection = (fileKey) => {
+    setSelectedFiles(prev => 
+      prev.includes(fileKey) 
+        ? prev.filter(k => k !== fileKey)
+        : [...prev, fileKey]
+    );
+  };
+
+  const selectAllFiles = () => {
+    if (selectedFiles.length === filteredFiles.length) {
+      setSelectedFiles([]);
+    } else {
+      setSelectedFiles(filteredFiles.map(f => f.key));
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    for (const key of selectedFiles) {
+      await handleDownload(key);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Delay between downloads
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
+      return;
+    }
+
+    try {
+      for (const key of selectedFiles) {
+        const session = await fetchAuthSession();
+        await post({
+          apiName: 'S3BrowserAPI',
+          path: `/buckets/${bucketName}/delete`,
+          options: {
+            headers: {
+              Authorization: `Bearer ${session.tokens.idToken}`
+            },
+            body: { key }
+          }
+        }).response;
+      }
+      setSelectedFiles([]);
+      loadBucketContents(currentPrefix);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const handleUpload = async (e) => {
@@ -260,7 +310,75 @@ function BucketView() {
         )}
       </div>
 
-      <div style={{display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'center'}}>
+      <div style={{display: 'flex', gap: '0.75rem', marginBottom: '1rem', alignItems: 'center'}}>
+        {selectedFiles.length > 0 && (
+          <div style={{display: 'flex', gap: '0.5rem'}}>
+            <button
+              onClick={handleBulkDownload}
+              style={{
+                padding: '0.625rem 0.875rem',
+                backgroundColor: '#007aff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Download ({selectedFiles.length})
+            </button>
+            {canWrite && (
+              <button
+                onClick={handleBulkDelete}
+                style={{
+                  padding: '0.625rem 0.875rem',
+                  backgroundColor: '#ff3b30',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Delete ({selectedFiles.length})
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedFiles([])}
+              style={{
+                padding: '0.625rem 0.875rem',
+                backgroundColor: '#8e8e93',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+        {filteredFiles.length > 0 && (
+          <button
+            onClick={selectAllFiles}
+            style={{
+              padding: '0.625rem 0.875rem',
+              backgroundColor: '#f2f2f7',
+              color: '#007aff',
+              border: '1px solid #d1d1d6',
+              borderRadius: '10px',
+              fontSize: '15px',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            {selectedFiles.length === filteredFiles.length ? 'Deselect All' : 'Select All'}
+          </button>
+        )}
         <input
           type="text"
           placeholder="Search files and folders..."
@@ -357,15 +475,23 @@ function BucketView() {
           ))}
           {filteredFiles.map(file => (
             <li key={file.key} className="file-item">
-              <div>
-                <div className="file-name">📄 {file.name}</div>
-                <div className="file-size">
-                  {(file.size / 1024).toFixed(2)} KB
-                  {file.lastModified && (
-                    <span style={{marginLeft: '1rem', color: '#8e8e93'}}>
-                      • {new Date(file.lastModified).toLocaleString()}
-                    </span>
-                  )}
+              <div style={{display: 'flex', alignItems: 'center', gap: '1rem', flex: 1}}>
+                <input
+                  type="checkbox"
+                  checked={selectedFiles.includes(file.key)}
+                  onChange={() => toggleFileSelection(file.key)}
+                  style={{width: '18px', height: '18px', cursor: 'pointer'}}
+                />
+                <div>
+                  <div className="file-name">📄 {file.name}</div>
+                  <div className="file-size">
+                    {(file.size / 1024).toFixed(2)} KB
+                    {file.lastModified && (
+                      <span style={{marginLeft: '1rem', color: '#8e8e93'}}>
+                        • {new Date(file.lastModified).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div style={{display: 'flex', gap: '0.5rem'}}>
@@ -446,23 +572,40 @@ function BucketView() {
                 padding: '1rem',
                 backgroundColor: 'white',
                 borderRadius: '12px',
-                border: '1px solid #e5e5ea',
+                border: selectedFiles.includes(file.key) ? '2px solid #007aff' : '1px solid #e5e5ea',
                 textAlign: 'center',
                 transition: 'all 0.2s ease',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 position: 'relative'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f9f9f9';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                if (!selectedFiles.includes(file.key)) {
+                  e.currentTarget.style.backgroundColor = '#f9f9f9';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'white';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                if (!selectedFiles.includes(file.key)) {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                }
               }}
             >
+              <input
+                type="checkbox"
+                checked={selectedFiles.includes(file.key)}
+                onChange={() => toggleFileSelection(file.key)}
+                style={{
+                  position: 'absolute',
+                  top: '0.75rem',
+                  left: '0.75rem',
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer'
+                }}
+              />
               <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📄</div>
               <div style={{
                 fontSize: '13px',
