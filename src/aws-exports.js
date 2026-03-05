@@ -9,6 +9,14 @@ const awsconfig = {
     redirectSignIn: 'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/,http://localhost:3000/',
     redirectSignOut: 'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/,http://localhost:3000/',
     responseType: 'code'
+  },
+  API: {
+    endpoints: [
+      {
+        name: 'S3BrowserAPI',
+        endpoint: 'https://9th34ei7t8.execute-api.ap-southeast-1.amazonaws.com/prod'
+      }
+    ]
   }
 };
 
