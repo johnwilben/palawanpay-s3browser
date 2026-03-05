@@ -8,6 +8,7 @@ import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
+import { DarkModeProvider, useDarkMode } from './DarkModeContext';
 
 const components = {
   SignIn: {
@@ -42,35 +43,69 @@ const components = {
   }
 };
 
+function AppContent({ signOut, user }) {
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
+
+  return (
+    <BrowserRouter>
+      <div className="app">
+        <header className="app-header">
+          <div className="header-content">
+            <img src="/PalawanPay logo - Yellow - horizontal stack.png" alt="PalawanPay" style={{height: '40px'}} />
+            <h1 style={{marginLeft: '1rem'}}>S3 Browser</h1>
+            <div className="user-info">
+              <button 
+                onClick={toggleDarkMode}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s ease',
+                  backdropFilter: 'blur(10px)'
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
+              <span>Happy Palawan Day, {user?.attributes?.name || user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
+              <button onClick={signOut} className="btn-signout">Sign Out</button>
+            </div>
+          </div>
+        </header>
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<BucketList user={user} />} />
+            <Route path="/bucket/:bucketName" element={<BucketView user={user} />} />
+            <Route path="/bucket/:bucketName/upload" element={<UploadPage user={user} />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+        <HelpButton />
+      </div>
+    </BrowserRouter>
+  );
+}
+
 function App() {
   return (
-    <Authenticator hideSignUp={true} components={components}>
-      {({ signOut, user }) => (
-        <BrowserRouter>
-          <div className="app">
-            <header className="app-header">
-              <div className="header-content">
-                <img src="/PalawanPay logo - Yellow - horizontal stack.png" alt="PalawanPay" style={{height: '40px'}} />
-                <h1 style={{marginLeft: '1rem'}}>S3 Browser</h1>
-                <div className="user-info">
-                  <span>Happy Palawan Day, {user?.attributes?.name || user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
-                  <button onClick={signOut} className="btn-signout">Sign Out</button>
-                </div>
-              </div>
-            </header>
-            <main className="app-main">
-              <Routes>
-                <Route path="/" element={<BucketList user={user} />} />
-                <Route path="/bucket/:bucketName" element={<BucketView user={user} />} />
-                <Route path="/bucket/:bucketName/upload" element={<UploadPage user={user} />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </main>
-            <HelpButton />
-          </div>
-        </BrowserRouter>
-      )}
-    </Authenticator>
+    <DarkModeProvider>
+      <Authenticator hideSignUp={true} components={components}>
+        {({ signOut, user }) => (
+          <AppContent signOut={signOut} user={user} />
+        )}
+      </Authenticator>
+    </DarkModeProvider>
   );
 }
 
