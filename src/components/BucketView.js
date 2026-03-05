@@ -70,6 +70,16 @@ function BucketView() {
     }
   };
 
+  const goBack = () => {
+    if (pathParts.length > 0) {
+      // Go to parent folder
+      navigateToPath(pathParts.length - 2);
+    } else {
+      // Go to bucket list
+      navigate('/');
+    }
+  };
+
   const filterAndSortItems = () => {
     // Filter folders
     let filteredFolders = folders.filter(folder =>
@@ -184,15 +194,22 @@ function BucketView() {
     <div className="bucket-view">
       <div className="bucket-header">
         <div>
-          <button onClick={() => navigate('/')} className="btn-back">← Back</button>
-          <h2 style={{marginTop: '1rem'}}>
+          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem'}}>
+            <button onClick={goBack} className="btn-back">
+              ← Back
+            </button>
+            <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
+              All Buckets
+            </button>
+          </div>
+          <h2 style={{marginTop: '0.5rem'}}>
             {bucketName}
             {pathParts.length > 0 && (
-              <span style={{fontSize: '0.8em', color: '#666', fontWeight: 'normal'}}>
+              <span style={{fontSize: '0.8em', color: '#8e8e93', fontWeight: 'normal'}}>
                 {' / '}
                 <span 
                   onClick={() => navigateToPath(-1)} 
-                  style={{cursor: 'pointer', color: '#0066cc'}}
+                  style={{cursor: 'pointer', color: '#007aff'}}
                 >
                   root
                 </span>
@@ -201,7 +218,7 @@ function BucketView() {
                     {' / '}
                     <span 
                       onClick={() => navigateToPath(index)} 
-                      style={{cursor: 'pointer', color: '#0066cc'}}
+                      style={{cursor: 'pointer', color: '#007aff'}}
                     >
                       {part}
                     </span>
