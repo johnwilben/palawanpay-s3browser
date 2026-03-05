@@ -1,7 +1,13 @@
 import json
 import boto3
+import logging
 from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
 sts = boto3.client('sts')
@@ -14,78 +20,106 @@ IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-96677c10e5'
 
 # Cross-account configuration
 CROSS_ACCOUNT_ROLES = [
-    {'account': 'PRIMARY_ACCOUNT_ID', 'role': None},
-    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
-    {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
+    {'account': '721010870103', 'role': None},  # Primary account
+    {'account': '236300332446', 'role': 'arn:aws:iam::236300332446:role/S3BrowserCrossAccountRole'},
+    {'account': '502174880086', 'role': 'arn:aws:iam::502174880086:role/S3BrowserCrossAccountRole'},
+    {'account': '471112740803', 'role': 'arn:aws:iam::471112740803:role/S3BrowserCrossAccountRole'}
 ]
 
 # Group-based bucket access with permissions
+# Permission levels:
+#   'read' = Read-only (view/download only, no upload/delete)
+#   'write' = Full access (read + write + delete)
 GROUP_BUCKET_ACCESS = {
-    's3-browser-admin': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+    'AWS-s3-browser-admin': {
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
     'AWS Super Administrators': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
     'AWS Administrators': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
-    's3-browser-datalake': {
+    
+    # Datalake - Read-only group
+    'AWS-s3-browser-datalake-read': {
         'buckets': [
-            {'pattern': 'datalake-*', 'permission': 'write'}
+            {'pattern': 'datalake-*', 'permission': 'read'}  # Read-only to all datalake-* buckets
         ]
     },
-    's3-browser-finance': {
+    # Datalake - Write group
+    'AWS-s3-browser-datalake-write': {
+        'buckets': [
+            {'pattern': 'datalake-*', 'permission': 'write'}  # Read + Write + Delete to all datalake-* buckets
+        ]
+    },
+    
+    # Finance - Mixed permissions
+    'AWS-s3-browser-finance': {
         'buckets': [
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-output-common',
-                'permission': 'read'
+                'permission': 'read'  # Read-only
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-athena',
-                'permission': 'write',
-                'prefix': ''  # Full bucket access
+                'permission': 'write',  # Read + Write + Delete
+                'prefix': ''
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-sandbox',
-                'permission': 'write',
+                'permission': 'write',  # Read + Write + Delete
                 'prefix': ''
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-staging-common',
-                'permission': 'write',
+                'permission': 'write',  # Read + Write + Delete
                 'prefix': ''
             }
         ]
     },
-    's3-browser-finance-GL': {
+    
+    # Finance GL - Read-only to specific folder
+    'AWS-s3-browser-finance-GL': {
         'buckets': [
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-raw-megalink',
-                'permission': 'read',
-                'prefix': 'megalink-wkf01/transaction-gl/'  # Folder-level access
+                'permission': 'read',  # Read-only
+                'prefix': 'megalink-wkf01/transaction-gl/'  # Only this folder
             }
         ]
     },
-    's3-browser-archive-treasury': {
+    
+    # Archive Treasury - Write access
+    'AWS-s3-browser-archive-treasury': {
         'buckets': [
             {
                 'pattern': 'operations-bucket-backup-sharepoint',
-                'permission': 'write'
+                'permission': 'write'  # Read + Write + Delete
             }
         ]
     },
-    's3-browser-visa': {
+    
+    # Visa - Read-only access
+    'AWS-s3-browser-visa': {
         'buckets': [
             {
-                'pattern': 'finance-palawanpay-sharepoint-backup',
-                'permission': 'write'
+                'pattern': 'visa-report-paymentology',
+                'permission': 'read'  # Read-only
             }
         ]
     },
-    's3-browser-pgc': {
+    
+    # PGC - Read-only group
+    'AWS-s3-browser-pgc-read': {
         'buckets': [
-            {'pattern': 'pgcdatalake-*', 'permission': 'write'}
+            {'pattern': 'pgcdatalake-*', 'permission': 'read'}  # Read-only to all pgcdatalake-* buckets
+        ]
+    },
+    # PGC - Write group
+    'AWS-s3-browser-pgc-write': {
+        'buckets': [
+            {'pattern': 'pgcdatalake-*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-* buckets
         ]
     }
 }
@@ -112,39 +146,53 @@ def get_user_email(event):
         if email.startswith('IAMIdentityCenter_'):
             email = email.replace('IAMIdentityCenter_', '')
         
-        print(f"Extracted email: {email}")
-        print(f"Event structure: {json.dumps(event.get('requestContext', {}))}")
+        logger.info(f"Extracted email: {email}")
+        logger.info(f"Event structure: {json.dumps(event.get('requestContext', {}))}")
         return email
     except Exception as e:
-        print(f"Error extracting email: {str(e)}")
-        print(f"Full event: {json.dumps(event)}")
+        logger.info(f"Error extracting email: {str(e)}")
+        logger.info(f"Full event: {json.dumps(event)}")
         return None
 
 def get_user_groups_from_token(event):
-    """Get user's Cognito groups from JWT token"""
+    """Get user's groups from JWT token (mapped from IAM Identity Center memberOf)"""
     try:
         authorizer = event.get('requestContext', {}).get('authorizer', {})
         claims = authorizer.get('jwt', {}).get('claims', {})
         
-        # Get cognito:groups from token
-        groups_str = claims.get('cognito:groups', '[]')
+        # Get groups from given_name (where we mapped memberOf from SAML)
+        groups_str = claims.get('given_name', '')
         
-        # Parse the groups string (it's a string representation of a list)
-        if isinstance(groups_str, str):
-            # Remove brackets and split by space
+        logger.info(f"Raw groups from token: {groups_str}")
+        
+        # Parse the group IDs - IAM Identity Center sends comma-separated group IDs
+        if isinstance(groups_str, str) and groups_str:
+            # Remove brackets and split by comma
             groups_str = groups_str.strip('[]')
-            groups = [g.strip() for g in groups_str.split() if g.strip()]
+            group_ids = [g.strip() for g in groups_str.split(',') if g.strip()]
         else:
-            groups = groups_str if isinstance(groups_str, list) else []
+            group_ids = []
         
-        # Filter out the IAM Identity Center federation group
-        groups = [g for g in groups if not g.startswith('ap-southeast-1_')]
+        # Resolve group IDs to group names
+        group_names = []
+        for group_id in group_ids:
+            try:
+                response = identitystore.describe_group(
+                    IdentityStoreId=IDENTITY_STORE_ID,
+                    GroupId=group_id
+                )
+                group_name = response.get('DisplayName', '')
+                if group_name:
+                    group_names.append(group_name)
+                    logger.info(f"Resolved group ID {group_id} to name: {group_name}")
+            except Exception as e:
+                logger.warning(f"Failed to resolve group ID {group_id}: {str(e)}")
         
-        print(f"User Cognito groups: {groups}")
-        return groups
+        logger.info(f"User groups: {group_names}")
+        return group_names
         
     except Exception as e:
-        print(f"Error getting user groups from token: {str(e)}")
+        logger.info(f"Error getting user groups from token: {str(e)}")
         return []
 
 def get_user_permissions_for_bucket(bucket_name, user_groups, prefix=''):
@@ -229,7 +277,7 @@ def process_account(account_config, user_groups):
         s3_client = get_s3_client(role_arn)
         buckets_response = s3_client.list_buckets()
         
-        print(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
+        logger.info(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
         
         for bucket in buckets_response.get('Buckets', []):
             bucket_name = bucket['Name']
@@ -258,20 +306,28 @@ def process_account(account_config, user_groups):
                 
                 buckets.append(bucket_info)
     except Exception as e:
-        print(f"Error accessing account {account_id}: {str(e)}")
+        logger.info(f"Error accessing account {account_id}: {str(e)}")
     
-    print(f"Account {account_id}: Returning {len(buckets)} accessible buckets")
+    logger.info(f"Account {account_id}: Returning {len(buckets)} accessible buckets")
     return buckets
 
 def lambda_handler(event, context):
+    # Log incoming request
+    request_id = context.aws_request_id
+    logger.info(f"[{request_id}] === NEW REQUEST ===")
+    logger.info(f"[{request_id}] Timestamp: {datetime.utcnow().isoformat()}")
+    
     path = event.get('rawPath') or event.get('path', '')
     method = event.get('requestContext', {}).get('http', {}).get('method') or event.get('httpMethod', '')
+    
+    logger.info(f"[{request_id}] Method: {method}, Path: {path}")
     
     # Remove stage from path if present
     if path.startswith('/prod'):
         path = path[5:]
     
     if method == 'OPTIONS':
+        logger.info(f"[{request_id}] OPTIONS request - returning CORS headers")
         return response(200, {})
     
     try:
@@ -292,20 +348,28 @@ def lambda_handler(event, context):
         return response(500, {'error': str(e)})
 
 def list_buckets(event):
+    request_id = event.get('requestContext', {}).get('requestId', 'unknown')
+    
     # Get user email
     user_email = get_user_email(event)
+    logger.info(f"[{request_id}] User email: {user_email}")
+    
     if not user_email:
+        logger.warning(f"[{request_id}] Unable to identify user - access denied")
         return response(403, {'error': 'Unable to identify user'})
     
     # Get user's groups from Cognito token
     user_groups = get_user_groups_from_token(event)
+    logger.info(f"[{request_id}] User groups: {user_groups}")
     
     # Temporary: If no groups, grant admin access until groups are set up
     if not user_groups:
-        print(f"User {user_email} has no groups, granting temporary admin access")
+        logger.warning(f"[{request_id}] User {user_email} has no groups, granting temporary admin access")
         user_groups = ['s3-browser-admin']
     
     all_buckets = []
+    
+    logger.info(f"[{request_id}] Processing {len(CROSS_ACCOUNT_ROLES)} accounts")
     
     # Process all accounts in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -315,8 +379,9 @@ def list_buckets(event):
             try:
                 buckets = future.result()
                 all_buckets.extend(buckets)
+                logger.info(f"[{request_id}] Retrieved {len(buckets)} buckets from account")
             except Exception as e:
-                print(f"Error processing account: {str(e)}")
+                logger.info(f"Error processing account: {str(e)}")
     
     return response(200, {'buckets': all_buckets})
 
