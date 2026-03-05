@@ -6,6 +6,7 @@ import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
+import HelpButton from './components/HelpButton';
 
 const components = {
   SignIn: {
@@ -63,6 +64,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>
+            <HelpButton />
           </div>
         </BrowserRouter>
       )}
