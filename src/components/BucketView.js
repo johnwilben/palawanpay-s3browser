@@ -151,7 +151,9 @@ function BucketView() {
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
+    const fileCount = selectedFiles.length;
+    const fileWord = fileCount === 1 ? 'file' : 'files';
+    if (!window.confirm(`Delete ${fileCount} ${fileWord}?\n\nThis will permanently delete the selected ${fileWord}. This action cannot be undone.`)) {
       return;
     }
 
@@ -235,7 +237,7 @@ function BucketView() {
   };
 
   const handleDelete = async (key, fileName) => {
-    if (!window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
+    if (!window.confirm(`Are you sure you want to delete "${fileName}"?\n\nThis action cannot be undone.`)) {
       return;
     }
 
@@ -323,10 +325,14 @@ function BucketView() {
                 borderRadius: '10px',
                 fontSize: '15px',
                 fontWeight: '500',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
               }}
+              title="Download selected files"
             >
-              Download ({selectedFiles.length})
+              ↓ {selectedFiles.length}
             </button>
             {canWrite && (
               <button
@@ -339,10 +345,14 @@ function BucketView() {
                   borderRadius: '10px',
                   fontSize: '15px',
                   fontWeight: '500',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
                 }}
+                title="Delete selected files"
               >
-                Delete ({selectedFiles.length})
+                🗑️ {selectedFiles.length}
               </button>
             )}
             <button
@@ -357,6 +367,7 @@ function BucketView() {
                 fontWeight: '500',
                 cursor: 'pointer'
               }}
+              title="Clear selection"
             >
               Clear
             </button>
@@ -495,8 +506,12 @@ function BucketView() {
                 </div>
               </div>
               <div style={{display: 'flex', gap: '0.5rem'}}>
-                <button onClick={() => handleDownload(file.key)} className="btn-download">
-                  Download
+                <button 
+                  onClick={() => handleDownload(file.key)} 
+                  className="btn-download"
+                  title="Download"
+                >
+                  ↓
                 </button>
                 {canWrite && (
                   <button 
@@ -508,14 +523,15 @@ function BucketView() {
                       padding: '0.5rem 1rem',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      fontSize: '15px',
+                      fontSize: '18px',
                       fontWeight: '500',
                       transition: 'background 0.2s ease'
                     }}
                     onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
                     onMouseLeave={(e) => e.target.style.background = '#ff3b30'}
+                    title="Delete"
                   >
-                    Delete
+                    🗑️
                   </button>
                 )}
               </div>
@@ -630,7 +646,7 @@ function BucketView() {
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
-                    fontSize: '13px',
+                    fontSize: '18px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
@@ -638,8 +654,9 @@ function BucketView() {
                   }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#0051d5'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = '#007aff'}
+                  title="Download"
                 >
-                  Download
+                  ↓
                 </button>
                 {canWrite && (
                   <button
@@ -651,7 +668,7 @@ function BucketView() {
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
-                      fontSize: '13px',
+                      fontSize: '18px',
                       fontWeight: '500',
                       cursor: 'pointer',
                       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
@@ -659,8 +676,9 @@ function BucketView() {
                     }}
                     onMouseEnter={(e) => e.target.style.backgroundColor = '#d32f2f'}
                     onMouseLeave={(e) => e.target.style.backgroundColor = '#ff3b30'}
+                    title="Delete"
                   >
-                    Delete
+                    🗑️
                   </button>
                 )}
               </div>
