@@ -198,6 +198,8 @@ body.dark-mode div[style*="backgroundColor: '#f2f2f7'"] {
   transition: background 0.2s ease;
   backdrop-filter: blur(10px);
   white-space: nowrap;
+  letter-spacing: normal;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
 }
 
 .btn-signout:hover {
