@@ -6,23 +6,29 @@ import { get, post } from 'aws-amplify/api';
 function BucketView() {
   const { bucketName } = useParams();
   const navigate = useNavigate();
+  const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [canWrite, setCanWrite] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [currentPrefix, setCurrentPrefix] = useState('');
+  const [pathParts, setPathParts] = useState([]);
 
   useEffect(() => {
-    loadBucketContents();
-  }, [bucketName]);
+    loadBucketContents(currentPrefix);
+  }, [bucketName, currentPrefix]);
 
-  const loadBucketContents = async () => {
+  const loadBucketContents = async (prefix = '') => {
+    setLoading(true);
     try {
       const session = await fetchAuthSession();
+      const queryParams = prefix ? { prefix } : {};
       const response = await get({
         apiName: 'S3BrowserAPI',
         path: `/buckets/${bucketName}/objects`,
         options: {
+          queryParams,
           headers: {
             Authorization: `Bearer ${session.tokens.idToken}`
           }
@@ -30,12 +36,34 @@ function BucketView() {
       }).response;
       
       const data = await response.body.json();
-      setFiles(data.objects || []);
+      setFolders(data.folders || []);
+      setFiles(data.files || []);
       setCanWrite(data.canWrite || false);
+      
+      // Update breadcrumb path
+      if (prefix) {
+        setPathParts(prefix.split('/').filter(p => p));
+      } else {
+        setPathParts([]);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const navigateToFolder = (folderName) => {
+    const newPrefix = currentPrefix + folderName + '/';
+    setCurrentPrefix(newPrefix);
+  };
+
+  const navigateToPath = (index) => {
+    if (index === -1) {
+      setCurrentPrefix('');
+    } else {
+      const newPrefix = pathParts.slice(0, index + 1).join('/') + '/';
+      setCurrentPrefix(newPrefix);
     }
   };
 
@@ -48,6 +76,7 @@ function BucketView() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64 = event.target.result.split(',')[1];
+        const fileName = currentPrefix + file.name;  // Include current path
         
         const session = await fetchAuthSession();
         await post({
@@ -58,14 +87,14 @@ function BucketView() {
               Authorization: `Bearer ${session.tokens.idToken}`
             },
             body: {
-              fileName: file.name,
+              fileName: fileName,
               fileType: file.type,
               fileContent: base64
             }
           }
         }).response;
         
-        loadBucketContents();
+        loadBucketContents(currentPrefix);
         setUploading(false);
       };
       reader.readAsDataURL(file);
@@ -103,7 +132,31 @@ function BucketView() {
       <div className="bucket-header">
         <div>
           <button onClick={() => navigate('/')} className="btn-back">← Back</button>
-          <h2 style={{marginTop: '1rem'}}>{bucketName}</h2>
+          <h2 style={{marginTop: '1rem'}}>
+            {bucketName}
+            {pathParts.length > 0 && (
+              <span style={{fontSize: '0.8em', color: '#666', fontWeight: 'normal'}}>
+                {' / '}
+                <span 
+                  onClick={() => navigateToPath(-1)} 
+                  style={{cursor: 'pointer', color: '#0066cc'}}
+                >
+                  root
+                </span>
+                {pathParts.map((part, index) => (
+                  <span key={index}>
+                    {' / '}
+                    <span 
+                      onClick={() => navigateToPath(index)} 
+                      style={{cursor: 'pointer', color: '#0066cc'}}
+                    >
+                      {part}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </h2>
         </div>
         {canWrite && (
           <label className="btn-upload">
@@ -116,15 +169,24 @@ function BucketView() {
       {error && <div className="error">{error}</div>}
       
       <ul className="file-list">
+        {folders.map(folder => (
+          <li key={folder.name} className="file-item" onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
+            <div>
+              <div className="file-name">📁 {folder.name}</div>
+              <div className="file-size" style={{color: '#666'}}>Folder</div>
+            </div>
+            <span style={{color: '#0066cc'}}>→</span>
+          </li>
+        ))}
         {files.map(file => (
           <li key={file.key} className="file-item">
             <div>
-              <div className="file-name">{file.key}</div>
+              <div className="file-name">📄 {file.name}</div>
               <div className="file-size">
                 {(file.size / 1024).toFixed(2)} KB
                 {file.lastModified && (
                   <span style={{marginLeft: '1rem', color: '#666'}}>
-                    • Uploaded: {new Date(file.lastModified).toLocaleString()}
+                    • {new Date(file.lastModified).toLocaleString()}
                   </span>
                 )}
               </div>
@@ -135,7 +197,7 @@ function BucketView() {
           </li>
         ))}
       </ul>
-      {files.length === 0 && <p>No files in this bucket</p>}
+      {folders.length === 0 && files.length === 0 && <p>No files or folders</p>}
     </div>
   );
 }

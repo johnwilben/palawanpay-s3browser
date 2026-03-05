@@ -400,28 +400,63 @@ def list_objects(bucket, event):
     if not permissions['canRead']:
         return response(403, {'error': 'No read access'})
     
-    # Apply prefix filter if user has restricted access
-    prefix = user_permission.get('prefix', '')
-    list_params = {'Bucket': bucket}
+    # Get prefix from query params (for folder navigation)
+    query_params = event.get('queryStringParameters') or {}
+    current_prefix = query_params.get('prefix', '')
+    
+    # Apply user's restricted prefix if any
+    user_prefix = user_permission.get('prefix', '')
+    if user_prefix:
+        # Combine user restriction with current navigation
+        prefix = user_prefix + current_prefix
+    else:
+        prefix = current_prefix
+    
+    list_params = {
+        'Bucket': bucket,
+        'Delimiter': '/'  # This groups objects into folders
+    }
     if prefix:
         list_params['Prefix'] = prefix
     
     objects_response = s3_client.list_objects_v2(**list_params)
-    objects = []
     
+    # Get folders (common prefixes)
+    folders = []
+    for prefix_obj in objects_response.get('CommonPrefixes', []):
+        folder_name = prefix_obj['Prefix']
+        if prefix:
+            folder_name = folder_name[len(prefix):]  # Remove current prefix
+        folders.append({
+            'name': folder_name.rstrip('/'),
+            'type': 'folder'
+        })
+    
+    # Get files
+    files = []
     for obj in objects_response.get('Contents', []):
-        objects.append({
-            'key': obj['Key'],
+        key = obj['Key']
+        # Skip the prefix itself if it's a folder marker
+        if key == prefix:
+            continue
+        # Remove current prefix from display
+        display_key = key[len(prefix):] if prefix else key
+        files.append({
+            'key': key,
+            'name': display_key,
             'size': obj['Size'],
-            'lastModified': obj['LastModified'].isoformat()
+            'lastModified': obj['LastModified'].isoformat(),
+            'type': 'file'
         })
     
     can_write = permissions['canWrite'] and user_permission['permission'] == 'write'
     
     return response(200, {
-        'objects': objects,
+        'folders': folders,
+        'files': files,
         'canWrite': can_write,
-        'prefix': prefix  # Tell frontend about prefix restriction
+        'currentPrefix': current_prefix,
+        'restrictedPrefix': user_prefix
     })
 
 def generate_upload_url(bucket, event):
