@@ -14,6 +14,8 @@ function BucketView() {
   const [uploading, setUploading] = useState(false);
   const [currentPrefix, setCurrentPrefix] = useState('');
   const [pathParts, setPathParts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name-asc');
 
   useEffect(() => {
     loadBucketContents(currentPrefix);
@@ -65,6 +67,47 @@ function BucketView() {
       const newPrefix = pathParts.slice(0, index + 1).join('/') + '/';
       setCurrentPrefix(newPrefix);
     }
+  };
+
+  const filterAndSortItems = () => {
+    // Filter folders
+    let filteredFolders = folders.filter(folder =>
+      folder.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Filter files
+    let filteredFiles = files.filter(file =>
+      file.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Sort folders (always by name)
+    filteredFolders.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Sort files
+    switch (sortBy) {
+      case 'name-asc':
+        filteredFiles.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        filteredFiles.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'size-asc':
+        filteredFiles.sort((a, b) => a.size - b.size);
+        break;
+      case 'size-desc':
+        filteredFiles.sort((a, b) => b.size - a.size);
+        break;
+      case 'date-asc':
+        filteredFiles.sort((a, b) => new Date(a.lastModified) - new Date(b.lastModified));
+        break;
+      case 'date-desc':
+        filteredFiles.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+        break;
+      default:
+        break;
+    }
+
+    return { filteredFolders, filteredFiles };
   };
 
   const handleUpload = async (e) => {
@@ -127,6 +170,10 @@ function BucketView() {
 
   if (loading) return <div className="loading">Loading...</div>;
 
+  const { filteredFolders, filteredFiles } = filterAndSortItems();
+  const totalItems = folders.length + files.length;
+  const filteredCount = filteredFolders.length + filteredFiles.length;
+
   return (
     <div className="bucket-view">
       <div className="bucket-header">
@@ -165,11 +212,51 @@ function BucketView() {
           </label>
         )}
       </div>
+
+      <div style={{display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center'}}>
+        <input
+          type="text"
+          placeholder="Search files and folders..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '0.5rem',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{
+            padding: '0.5rem',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '14px',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="size-asc">Size (Smallest)</option>
+          <option value="size-desc">Size (Largest)</option>
+          <option value="date-asc">Date (Oldest)</option>
+          <option value="date-desc">Date (Newest)</option>
+        </select>
+      </div>
+
+      {searchQuery && (
+        <div style={{marginBottom: '1rem', color: '#666', fontSize: '14px'}}>
+          Showing {filteredCount} of {totalItems} items
+        </div>
+      )}
       
       {error && <div className="error">{error}</div>}
       
       <ul className="file-list">
-        {folders.map(folder => (
+        {filteredFolders.map(folder => (
           <li key={folder.name} className="file-item" onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
             <div>
               <div className="file-name">📁 {folder.name}</div>
@@ -178,7 +265,7 @@ function BucketView() {
             <span style={{color: '#0066cc'}}>→</span>
           </li>
         ))}
-        {files.map(file => (
+        {filteredFiles.map(file => (
           <li key={file.key} className="file-item">
             <div>
               <div className="file-name">📄 {file.name}</div>
@@ -197,7 +284,8 @@ function BucketView() {
           </li>
         ))}
       </ul>
-      {folders.length === 0 && files.length === 0 && <p>No files or folders</p>}
+      {filteredCount === 0 && searchQuery && <p>No items match "{searchQuery}"</p>}
+      {totalItems === 0 && !searchQuery && <p>No files or folders</p>}
     </div>
   );
 }
