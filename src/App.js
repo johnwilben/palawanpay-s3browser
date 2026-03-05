@@ -70,7 +70,8 @@ function AppContent({ signOut, user }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   transition: 'background 0.2s ease',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
+                  filter: isDarkMode ? 'none' : 'grayscale(0)'
                 }}
                 onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
                 onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}

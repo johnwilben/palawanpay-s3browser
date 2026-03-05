@@ -121,6 +121,16 @@ body.dark-mode [style*="border-color: #e5e5ea"] {
   border-color: #38383a !important;
 }
 
+body.dark-mode .file-name,
+body.dark-mode .bucket-name {
+  color: #ffffff !important;
+}
+
+/* Ensure emojis render in color */
+.user-info button {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
