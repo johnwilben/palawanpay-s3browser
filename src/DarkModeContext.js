@@ -12,11 +12,23 @@ export const DarkModeProvider = ({ children }) => {
 
   const updateTextColors = () => {
     if (document.body.classList.contains('dark-mode')) {
+      // Dark mode - change to white
       document.querySelectorAll('[style*="color: #1c1c1e"], [style*="color: rgb(28, 28, 30)"]').forEach(el => {
+        el.setAttribute('data-original-color', el.style.color);
         el.style.color = '#ffffff';
       });
       document.querySelectorAll('[style*="color: #8e8e93"], [style*="color: rgb(142, 142, 147)"]').forEach(el => {
+        el.setAttribute('data-original-color', el.style.color);
         el.style.color = '#98989d';
+      });
+    } else {
+      // Light mode - restore original colors
+      document.querySelectorAll('[data-original-color]').forEach(el => {
+        const original = el.getAttribute('data-original-color');
+        if (original) {
+          el.style.color = original;
+        }
+        el.removeAttribute('data-original-color');
       });
     }
   };
@@ -25,26 +37,23 @@ export const DarkModeProvider = ({ children }) => {
     localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
     if (isDarkMode) {
       document.body.classList.add('dark-mode');
-      // Update colors immediately and after a delay for dynamic content
-      updateTextColors();
-      setTimeout(updateTextColors, 100);
-      setTimeout(updateTextColors, 500);
     } else {
       document.body.classList.remove('dark-mode');
     }
+    // Update colors immediately and after delays
+    updateTextColors();
+    setTimeout(updateTextColors, 100);
+    setTimeout(updateTextColors, 500);
   }, [isDarkMode]);
 
-  // Run on mount if dark mode is already enabled
+  // Run on mount and watch for dynamic content
   useEffect(() => {
-    if (isDarkMode) {
+    updateTextColors();
+    const observer = new MutationObserver(() => {
       updateTextColors();
-      // Set up observer for dynamic content
-      const observer = new MutationObserver(() => {
-        updateTextColors();
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      return () => observer.disconnect();
-    }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev);
