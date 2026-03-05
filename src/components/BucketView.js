@@ -153,7 +153,13 @@ function BucketView() {
   const handleBulkDelete = async () => {
     const fileCount = selectedFiles.length;
     const fileWord = fileCount === 1 ? 'file' : 'files';
-    if (!window.confirm(`Delete ${fileCount} ${fileWord}?\n\nThis will permanently delete the selected ${fileWord}. This action cannot be undone.`)) {
+    
+    const userInput = prompt(`Delete ${fileCount} ${fileWord}?\n\nThis will permanently delete the selected ${fileWord}.\n\nType "delete" to confirm:`);
+    
+    if (userInput !== 'delete') {
+      if (userInput !== null) {
+        alert('Deletion cancelled. You must type "delete" to confirm.');
+      }
       return;
     }
 
@@ -237,7 +243,12 @@ function BucketView() {
   };
 
   const handleDelete = async (key, fileName) => {
-    if (!window.confirm(`Are you sure you want to delete "${fileName}"?\n\nThis action cannot be undone.`)) {
+    const userInput = prompt(`To delete "${fileName}", type "delete" to confirm:\n\nThis action cannot be undone.`);
+    
+    if (userInput !== 'delete') {
+      if (userInput !== null) {
+        alert('Deletion cancelled. You must type "delete" to confirm.');
+      }
       return;
     }
 
