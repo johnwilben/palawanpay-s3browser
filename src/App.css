@@ -57,6 +57,10 @@ body.dark-mode select {
   border-color: #38383a;
 }
 
+body.dark-mode input::placeholder {
+  color: #98989d;
+}
+
 body.dark-mode .help-button {
   background: #0a84ff;
   box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
@@ -94,6 +98,27 @@ body.dark-mode .permission-badge.permission-read {
 body.dark-mode .permission-badge.permission-write {
   background: #4a3a1a;
   color: #ffb74d;
+}
+
+/* Dark mode for inline styled elements (grid cards, etc) */
+body.dark-mode [style*="background: white"],
+body.dark-mode [style*="background-color: white"],
+body.dark-mode [style*="backgroundColor: 'white'"] {
+  background: #1c1c1e !important;
+  background-color: #1c1c1e !important;
+}
+
+body.dark-mode [style*="color: #1c1c1e"] {
+  color: #ffffff !important;
+}
+
+body.dark-mode [style*="color: #8e8e93"] {
+  color: #98989d !important;
+}
+
+body.dark-mode [style*="border: 1px solid #e5e5ea"],
+body.dark-mode [style*="border-color: #e5e5ea"] {
+  border-color: #38383a !important;
 }
 
 .app {
