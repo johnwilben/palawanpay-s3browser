@@ -342,6 +342,9 @@ def lambda_handler(event, context):
         elif path.startswith('/buckets/') and path.endswith('/delete') and method == 'POST':
             bucket = path.split('/')[2]
             return delete_object(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/download-zip') and method == 'POST':
+            bucket = path.split('/')[2]
+            return generate_zip_download(bucket, event)
         elif path.startswith('/buckets/') and '/download' in path and method == 'GET':
             bucket = path.split('/')[2]
             return generate_download_url(bucket, event)
@@ -563,6 +566,75 @@ def generate_download_url(bucket, event):
             'Bucket': bucket, 
             'Key': key,
             'ResponseContentDisposition': f'attachment; filename="{key.split("/")[-1]}"'
+        },
+        ExpiresIn=3600
+    )
+    
+    return response(200, {'downloadUrl': presigned_url})
+
+def generate_zip_download(bucket, event):
+    import zipfile
+    import io
+    from datetime import datetime
+    
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
+    
+    if not permissions['canRead']:
+        return response(403, {'error': 'No read access'})
+    
+    body = json.loads(event.get('body', '{}'))
+    keys = body.get('keys', [])
+    
+    if not keys:
+        return response(400, {'error': 'No files specified'})
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    for key in keys:
+        if prefix and not key.startswith(prefix):
+            return response(403, {'error': f'Can only access files in {prefix}'})
+    
+    # Create zip in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for key in keys:
+            try:
+                obj = s3_client.get_object(Bucket=bucket, Key=key)
+                file_content = obj['Body'].read()
+                # Use just the filename, not the full path
+                filename = key.split('/')[-1]
+                zip_file.writestr(filename, file_content)
+            except Exception as e:
+                print(f"Error adding {key} to zip: {str(e)}")
+    
+    # Upload zip to temp location in same bucket
+    zip_buffer.seek(0)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    zip_key = f'temp/download_{timestamp}.zip'
+    
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=zip_key,
+        Body=zip_buffer.getvalue(),
+        ContentType='application/zip'
+    )
+    
+    # Generate presigned URL for the zip
+    presigned_url = s3_client.generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': bucket,
+            'Key': zip_key,
+            'ResponseContentDisposition': f'attachment; filename="download_{timestamp}.zip"'
         },
         ExpiresIn=3600
     )

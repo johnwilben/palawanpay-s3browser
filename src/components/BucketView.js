@@ -18,6 +18,7 @@ function BucketView() {
   const [sortBy, setSortBy] = useState('name-asc');
   const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'grid');
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     loadBucketContents(currentPrefix);
@@ -69,6 +70,11 @@ function BucketView() {
       const newPrefix = pathParts.slice(0, index + 1).join('/') + '/';
       setCurrentPrefix(newPrefix);
     }
+  };
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
   };
 
   const goBack = () => {
@@ -144,9 +150,32 @@ function BucketView() {
   };
 
   const handleBulkDownload = async () => {
-    for (const key of selectedFiles) {
-      await handleDownload(key);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay between downloads
+    if (selectedFiles.length === 1) {
+      // Single file - direct download
+      await handleDownload(selectedFiles[0]);
+    } else {
+      // Multiple files - download as zip
+      try {
+        const session = await fetchAuthSession();
+        const response = await post({
+          apiName: 'S3BrowserAPI',
+          path: `/buckets/${bucketName}/download-zip`,
+          options: {
+            headers: {
+              Authorization: `Bearer ${session.tokens.idToken}`
+            },
+            body: {
+              keys: selectedFiles
+            }
+          }
+        }).response;
+        
+        const data = await response.body.json();
+        window.open(data.downloadUrl, '_blank');
+        showToast(`Downloading ${selectedFiles.length} files as ZIP`);
+      } catch (err) {
+        setError(err.message);
+      }
     }
   };
 
@@ -179,45 +208,9 @@ function BucketView() {
       }
       setSelectedFiles([]);
       loadBucketContents(currentPrefix);
+      showToast(`${fileCount} ${fileWord} deleted`);
     } catch (err) {
       setError(err.message);
-    }
-  };
-
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target.result.split(',')[1];
-        const fileName = currentPrefix + file.name;  // Include current path
-        
-        const session = await fetchAuthSession();
-        await post({
-          apiName: 'S3BrowserAPI',
-          path: `/buckets/${bucketName}/upload`,
-          options: {
-            headers: {
-              Authorization: `Bearer ${session.tokens.idToken}`
-            },
-            body: {
-              fileName: fileName,
-              fileType: file.type,
-              fileContent: base64
-            }
-          }
-        }).response;
-        
-        loadBucketContents(currentPrefix);
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      setError(err.message);
-      setUploading(false);
     }
   };
 
@@ -266,6 +259,7 @@ function BucketView() {
       }).response;
       
       loadBucketContents(currentPrefix);
+      showToast(`"${fileName}" deleted`);
     } catch (err) {
       setError(err.message);
     }
@@ -316,10 +310,12 @@ function BucketView() {
           </h2>
         </div>
         {canWrite && (
-          <label className="btn-upload">
-            {uploading ? 'Uploading...' : 'Upload File'}
-            <input type="file" onChange={handleUpload} disabled={uploading} style={{display: 'none'}} />
-          </label>
+          <button 
+            onClick={() => navigate(`/bucket/${bucketName}/upload${currentPrefix ? `?prefix=${currentPrefix}` : ''}`)}
+            className="btn-upload"
+          >
+            Upload Files
+          </button>
         )}
       </div>
 
@@ -699,6 +695,27 @@ function BucketView() {
       )}
       {filteredCount === 0 && searchQuery && <p style={{color: '#8e8e93', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif'}}>No items match "{searchQuery}"</p>}
       {totalItems === 0 && !searchQuery && <p style={{color: '#8e8e93', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif'}}>No files or folders</p>}
+      
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(28, 28, 30, 0.95)',
+          color: 'white',
+          padding: '0.875rem 1.5rem',
+          borderRadius: '12px',
+          fontSize: '15px',
+          fontWeight: '500',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+          zIndex: 1000,
+          animation: 'slideUp 0.3s ease',
+          backdropFilter: 'blur(10px)'
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

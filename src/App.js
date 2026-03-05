@@ -6,6 +6,7 @@ import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
+import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
 
 const components = {
@@ -61,6 +62,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<BucketList user={user} />} />
                 <Route path="/bucket/:bucketName" element={<BucketView user={user} />} />
+                <Route path="/bucket/:bucketName/upload" element={<UploadPage user={user} />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>
