@@ -339,6 +339,9 @@ def lambda_handler(event, context):
         elif path.startswith('/buckets/') and path.endswith('/upload') and method == 'POST':
             bucket = path.split('/')[2]
             return generate_upload_url(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/delete') and method == 'POST':
+            bucket = path.split('/')[2]
+            return delete_object(bucket, event)
         elif path.startswith('/buckets/') and '/download' in path and method == 'GET':
             bucket = path.split('/')[2]
             return generate_download_url(bucket, event)
@@ -498,6 +501,39 @@ def generate_upload_url(bucket, event):
         return response(200, {'success': True})
     
     return response(400, {'error': 'No file content'})
+
+def delete_object(bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    if user_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access required to delete files'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
+    
+    if not permissions['canWrite']:
+        return response(403, {'error': 'No write access'})
+    
+    body = json.loads(event.get('body', '{}'))
+    key = body.get('key')
+    
+    if not key:
+        return response(400, {'error': 'Key is required'})
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not key.startswith(prefix):
+        return response(403, {'error': f'Can only delete from {prefix}'})
+    
+    s3_client.delete_object(Bucket=bucket, Key=key)
+    
+    return response(200, {'success': True})
 
 def generate_download_url(bucket, event):
     # Get user's groups

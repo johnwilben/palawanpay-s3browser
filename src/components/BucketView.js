@@ -184,6 +184,30 @@ function BucketView() {
     }
   };
 
+  const handleDelete = async (key, fileName) => {
+    if (!window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
+      return;
+    }
+
+    try {
+      const session = await fetchAuthSession();
+      await post({
+        apiName: 'S3BrowserAPI',
+        path: `/buckets/${bucketName}/delete`,
+        options: {
+          headers: {
+            Authorization: `Bearer ${session.tokens.idToken}`
+          },
+          body: { key }
+        }
+      }).response;
+      
+      loadBucketContents(currentPrefix);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
 
   const { filteredFolders, filteredFiles } = filterAndSortItems();
@@ -199,7 +223,7 @@ function BucketView() {
               ← Back
             </button>
             <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
-              All Buckets
+              Return to Home
             </button>
           </div>
           <h2 style={{marginTop: '0.5rem'}}>
@@ -344,9 +368,31 @@ function BucketView() {
                   )}
                 </div>
               </div>
-              <button onClick={() => handleDownload(file.key)} className="btn-download">
-                Download
-              </button>
+              <div style={{display: 'flex', gap: '0.5rem'}}>
+                <button onClick={() => handleDownload(file.key)} className="btn-download">
+                  Download
+                </button>
+                {canWrite && (
+                  <button 
+                    onClick={() => handleDelete(file.key, file.name)} 
+                    style={{
+                      background: '#ff3b30',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      transition: 'background 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
+                    onMouseLeave={(e) => e.target.style.background = '#ff3b30'}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -431,26 +477,50 @@ function BucketView() {
               <div style={{fontSize: '11px', color: '#8e8e93', marginBottom: '0.75rem'}}>
                 {(file.size / 1024).toFixed(2)} KB
               </div>
-              <button
-                onClick={() => handleDownload(file.key)}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  backgroundColor: '#007aff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
-                  transition: 'background-color 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#0051d5'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#007aff'}
-              >
-                Download
-              </button>
+              <div style={{display: 'flex', gap: '0.5rem'}}>
+                <button
+                  onClick={() => handleDownload(file.key)}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem',
+                    backgroundColor: '#007aff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#0051d5'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#007aff'}
+                >
+                  Download
+                </button>
+                {canWrite && (
+                  <button
+                    onClick={() => handleDelete(file.key, file.name)}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      backgroundColor: '#ff3b30',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#d32f2f'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#ff3b30'}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
