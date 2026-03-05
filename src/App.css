@@ -131,6 +131,24 @@ body.dark-mode .bucket-name {
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
 }
 
+/* Fix inline text colors in dark mode */
+body.dark-mode div[style*="color: #1c1c1e"],
+body.dark-mode div[style*="color: '#1c1c1e'"],
+body.dark-mode span[style*="color: #1c1c1e"],
+body.dark-mode span[style*="color: '#1c1c1e'"] {
+  color: #ffffff !important;
+}
+
+body.dark-mode div[style*="color: #8e8e93"],
+body.dark-mode span[style*="color: #8e8e93"] {
+  color: #98989d !important;
+}
+
+/* Fix view toggle in dark mode */
+body.dark-mode div[style*="backgroundColor: '#f2f2f7'"] {
+  background-color: #2c2c2e !important;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -179,6 +197,7 @@ body.dark-mode .bucket-name {
   font-size: 15px;
   transition: background 0.2s ease;
   backdrop-filter: blur(10px);
+  white-space: nowrap;
 }
 
 .btn-signout:hover {
