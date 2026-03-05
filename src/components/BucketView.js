@@ -16,6 +16,7 @@ function BucketView() {
   const [pathParts, setPathParts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name-asc');
+  const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'list');
 
   useEffect(() => {
     loadBucketContents(currentPrefix);
@@ -108,6 +109,11 @@ function BucketView() {
     }
 
     return { filteredFolders, filteredFiles };
+  };
+
+  const toggleViewMode = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('viewMode', mode);
   };
 
   const handleUpload = async (e) => {
@@ -213,7 +219,7 @@ function BucketView() {
         )}
       </div>
 
-      <div style={{display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center'}}>
+      <div style={{display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'center'}}>
         <input
           type="text"
           placeholder="Search files and folders..."
@@ -221,21 +227,29 @@ function BucketView() {
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
             flex: 1,
-            padding: '0.5rem',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            fontSize: '14px'
+            padding: '0.625rem 0.875rem',
+            border: '1px solid #d1d1d6',
+            borderRadius: '10px',
+            fontSize: '15px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+            outline: 'none',
+            transition: 'border-color 0.2s ease'
           }}
+          onFocus={(e) => e.target.style.borderColor = '#007aff'}
+          onBlur={(e) => e.target.style.borderColor = '#d1d1d6'}
         />
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
           style={{
-            padding: '0.5rem',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            fontSize: '14px',
-            backgroundColor: 'white'
+            padding: '0.625rem 0.875rem',
+            border: '1px solid #d1d1d6',
+            borderRadius: '10px',
+            fontSize: '15px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+            backgroundColor: 'white',
+            outline: 'none',
+            cursor: 'pointer'
           }}
         >
           <option value="name-asc">Name (A-Z)</option>
@@ -245,47 +259,187 @@ function BucketView() {
           <option value="date-asc">Date (Oldest)</option>
           <option value="date-desc">Date (Newest)</option>
         </select>
+        <div style={{display: 'flex', gap: '0.5rem', padding: '0.25rem', backgroundColor: '#f2f2f7', borderRadius: '10px'}}>
+          <button
+            onClick={() => toggleViewMode('list')}
+            style={{
+              padding: '0.5rem 0.75rem',
+              border: 'none',
+              borderRadius: '8px',
+              backgroundColor: viewMode === 'list' ? 'white' : 'transparent',
+              cursor: 'pointer',
+              fontSize: '18px',
+              transition: 'all 0.2s ease',
+              boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+            }}
+            title="List view"
+          >
+            ☰
+          </button>
+          <button
+            onClick={() => toggleViewMode('grid')}
+            style={{
+              padding: '0.5rem 0.75rem',
+              border: 'none',
+              borderRadius: '8px',
+              backgroundColor: viewMode === 'grid' ? 'white' : 'transparent',
+              cursor: 'pointer',
+              fontSize: '18px',
+              transition: 'all 0.2s ease',
+              boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+            }}
+            title="Grid view"
+          >
+            ⊞
+          </button>
+        </div>
       </div>
 
       {searchQuery && (
-        <div style={{marginBottom: '1rem', color: '#666', fontSize: '14px'}}>
+        <div style={{marginBottom: '1rem', color: '#8e8e93', fontSize: '15px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif'}}>
           Showing {filteredCount} of {totalItems} items
         </div>
       )}
       
       {error && <div className="error">{error}</div>}
       
-      <ul className="file-list">
-        {filteredFolders.map(folder => (
-          <li key={folder.name} className="file-item" onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
-            <div>
-              <div className="file-name">📁 {folder.name}</div>
-              <div className="file-size" style={{color: '#666'}}>Folder</div>
-            </div>
-            <span style={{color: '#0066cc'}}>→</span>
-          </li>
-        ))}
-        {filteredFiles.map(file => (
-          <li key={file.key} className="file-item">
-            <div>
-              <div className="file-name">📄 {file.name}</div>
-              <div className="file-size">
-                {(file.size / 1024).toFixed(2)} KB
-                {file.lastModified && (
-                  <span style={{marginLeft: '1rem', color: '#666'}}>
-                    • {new Date(file.lastModified).toLocaleString()}
-                  </span>
-                )}
+      {viewMode === 'list' ? (
+        <ul className="file-list">
+          {filteredFolders.map(folder => (
+            <li key={folder.name} className="file-item" onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
+              <div>
+                <div className="file-name">📁 {folder.name}</div>
+                <div className="file-size" style={{color: '#8e8e93'}}>Folder</div>
+              </div>
+              <span style={{color: '#007aff', fontSize: '20px'}}>›</span>
+            </li>
+          ))}
+          {filteredFiles.map(file => (
+            <li key={file.key} className="file-item">
+              <div>
+                <div className="file-name">📄 {file.name}</div>
+                <div className="file-size">
+                  {(file.size / 1024).toFixed(2)} KB
+                  {file.lastModified && (
+                    <span style={{marginLeft: '1rem', color: '#8e8e93'}}>
+                      • {new Date(file.lastModified).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => handleDownload(file.key)} className="btn-download">
+                Download
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          gap: '1rem'
+        }}>
+          {filteredFolders.map(folder => (
+            <div
+              key={folder.name}
+              onClick={() => navigateToFolder(folder.name)}
+              style={{
+                padding: '1rem',
+                backgroundColor: 'white',
+                borderRadius: '12px',
+                border: '1px solid #e5e5ea',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f9f9f9';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+              }}
+            >
+              <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📁</div>
+              <div style={{
+                fontSize: '13px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+                color: '#1c1c1e',
+                wordBreak: 'break-word',
+                fontWeight: '500'
+              }}>
+                {folder.name}
               </div>
             </div>
-            <button onClick={() => handleDownload(file.key)} className="btn-download">
-              Download
-            </button>
-          </li>
-        ))}
-      </ul>
-      {filteredCount === 0 && searchQuery && <p>No items match "{searchQuery}"</p>}
-      {totalItems === 0 && !searchQuery && <p>No files or folders</p>}
+          ))}
+          {filteredFiles.map(file => (
+            <div
+              key={file.key}
+              style={{
+                padding: '1rem',
+                backgroundColor: 'white',
+                borderRadius: '12px',
+                border: '1px solid #e5e5ea',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f9f9f9';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+              }}
+            >
+              <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📄</div>
+              <div style={{
+                fontSize: '13px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+                color: '#1c1c1e',
+                wordBreak: 'break-word',
+                marginBottom: '0.5rem',
+                fontWeight: '500'
+              }}>
+                {file.name}
+              </div>
+              <div style={{fontSize: '11px', color: '#8e8e93', marginBottom: '0.75rem'}}>
+                {(file.size / 1024).toFixed(2)} KB
+              </div>
+              <button
+                onClick={() => handleDownload(file.key)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  backgroundColor: '#007aff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#0051d5'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#007aff'}
+              >
+                Download
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {filteredCount === 0 && searchQuery && <p style={{color: '#8e8e93', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif'}}>No items match "{searchQuery}"</p>}
+      {totalItems === 0 && !searchQuery && <p style={{color: '#8e8e93', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif'}}>No files or folders</p>}
     </div>
   );
 }

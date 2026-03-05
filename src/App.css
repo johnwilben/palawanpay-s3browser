@@ -2,9 +2,12 @@
   --palawan-primary: #00A651;
   --palawan-secondary: #008C44;
   --palawan-accent: #FFB81C;
-  --palawan-bg: #F5F7FA;
-  --palawan-text: #1A1A1A;
-  --palawan-border: #E0E0E0;
+  --apple-blue: #007aff;
+  --apple-bg: #f2f2f7;
+  --apple-card: #ffffff;
+  --apple-text: #1c1c1e;
+  --apple-secondary-text: #8e8e93;
+  --apple-border: #e5e5ea;
 }
 
 * {
@@ -14,9 +17,11 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: var(--palawan-bg);
-  color: var(--palawan-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  background: var(--apple-bg);
+  color: var(--apple-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app {
@@ -29,7 +34,8 @@ body {
   background: var(--palawan-primary);
   color: white;
   padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+  backdrop-filter: blur(20px);
 }
 
 .header-content {
@@ -45,26 +51,31 @@ body {
   font-size: 1.5rem;
   font-weight: 600;
   flex: 1;
+  letter-spacing: -0.02em;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 1rem;
+  font-size: 15px;
 }
 
 .btn-signout {
-  background: var(--palawan-accent);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 15px;
+  transition: background 0.2s ease;
+  backdrop-filter: blur(10px);
 }
 
 .btn-signout:hover {
-  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .app-main {
@@ -78,12 +89,13 @@ body {
 .loading {
   text-align: center;
   padding: 3rem;
-  color: var(--palawan-secondary);
+  color: var(--apple-secondary-text);
+  font-size: 17px;
 }
 
 .spinner {
-  border: 4px solid var(--palawan-border);
-  border-top: 4px solid var(--palawan-primary);
+  border: 3px solid var(--apple-border);
+  border-top: 3px solid var(--apple-blue);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -133,7 +145,7 @@ body {
   margin-bottom: 3rem;
   background: white;
   padding: 1.5rem 3rem;
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
@@ -143,6 +155,7 @@ body {
   color: white;
   margin-bottom: 1.5rem;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.03em;
 }
 
 .login-subtitle {
@@ -150,6 +163,7 @@ body {
   font-size: 1.5rem;
   margin-bottom: 4rem;
   line-height: 1.6;
+  font-weight: 400;
 }
 
 .login-button {
@@ -157,7 +171,7 @@ body {
   color: var(--palawan-primary);
   border: none;
   padding: 1.5rem 3rem;
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 1.4rem;
   font-weight: 600;
   cursor: pointer;
@@ -222,61 +236,62 @@ body {
   --amplify-components-authenticator-router-box-shadow: none;
 }
 
-/* Hide the default sign in form but keep our custom header */
 [data-amplify-authenticator] form {
   display: none !important;
 }
 
-/* Hide sign up tab */
 [data-amplify-authenticator] [role="tablist"] {
   display: none !important;
 }
 
-/* Hide footer links */
 [data-amplify-authenticator] [data-amplify-footer] {
   display: none !important;
 }
 
 .error {
-  background: #FEE;
-  border: 1px solid #C00;
-  color: #C00;
+  background: #ffebee;
+  border: 1px solid #ef5350;
+  color: #c62828;
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: 12px;
   margin: 1rem 0;
+  font-size: 15px;
 }
 
 .bucket-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
   margin-top: 1.5rem;
 }
 
 .bucket-card {
-  background: white;
-  border: 1px solid var(--palawan-border);
-  border-radius: 8px;
+  background: var(--apple-card);
+  border: 1px solid var(--apple-border);
+  border-radius: 14px;
   padding: 1.5rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .bucket-card:hover {
-  border-color: var(--palawan-primary);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: var(--apple-blue);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
 }
 
 .bucket-name {
-  font-size: 1.1rem;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--palawan-secondary);
+  color: var(--apple-text);
   margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
 }
 
 .bucket-account {
-  font-size: 0.85rem;
-  color: #666;
+  font-size: 13px;
+  color: var(--apple-secondary-text);
   margin-bottom: 0.5rem;
 }
 
@@ -288,25 +303,26 @@ body {
 
 .permission-badge {
   padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .permission-read {
-  background: #E3F2FD;
-  color: #1976D2;
+  background: #e3f2fd;
+  color: #1976d2;
 }
 
 .permission-write {
-  background: #FFF3E0;
-  color: #F57C00;
+  background: #fff3e0;
+  color: #f57c00;
 }
 
 .bucket-view {
-  background: white;
-  border-radius: 8px;
+  background: var(--apple-card);
+  border-radius: 14px;
   padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .bucket-header {
@@ -315,26 +331,39 @@ body {
   align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid var(--palawan-border);
+  border-bottom: 1px solid var(--apple-border);
 }
 
 .btn-back {
-  background: var(--palawan-secondary);
+  background: var(--apple-blue);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-back:hover {
+  background: #0051d5;
 }
 
 .btn-upload {
-  background: var(--palawan-accent);
+  background: var(--apple-blue);
   color: white;
   border: none;
-  padding: 0.5rem 1.5rem;
-  border-radius: 4px;
+  padding: 0.625rem 1.5rem;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 15px;
+  transition: background 0.2s ease;
+}
+
+.btn-upload:hover {
+  background: #0051d5;
 }
 
 .btn-upload:disabled {
@@ -351,27 +380,42 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border-bottom: 1px solid var(--palawan-border);
+  border-bottom: 1px solid var(--apple-border);
+  transition: background 0.15s ease;
 }
 
 .file-item:hover {
-  background: var(--palawan-bg);
+  background: var(--apple-bg);
+}
+
+.file-item:last-child {
+  border-bottom: none;
 }
 
 .file-name {
   font-weight: 500;
+  font-size: 15px;
+  color: var(--apple-text);
+  margin-bottom: 0.25rem;
 }
 
 .file-size {
-  color: #666;
-  font-size: 0.9rem;
+  color: var(--apple-secondary-text);
+  font-size: 13px;
 }
 
 .btn-download {
-  background: var(--palawan-primary);
+  background: var(--apple-blue);
   color: white;
   border: none;
-  padding: 0.4rem 1rem;
-  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-download:hover {
+  background: #0051d5;
 }
