@@ -18,13 +18,14 @@ sso_admin = boto3.client('sso-admin')
 AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
 
 def log_audit(event_type, user_email, bucket, key='', details=None):
-    """Log audit events to S3"""
+    """Log audit events to S3 - consolidated per hour"""
     try:
-        timestamp = datetime.utcnow().isoformat()
-        date_prefix = datetime.utcnow().strftime('%Y/%m/%d')
+        timestamp = datetime.utcnow()
+        date_prefix = timestamp.strftime('%Y/%m/%d')
+        hour = timestamp.strftime('%H')
         
         log_entry = {
-            'timestamp': timestamp,
+            'timestamp': timestamp.isoformat(),
             'event_type': event_type,
             'user_email': user_email,
             'bucket': bucket,
@@ -32,12 +33,26 @@ def log_audit(event_type, user_email, bucket, key='', details=None):
             'details': details or {}
         }
         
-        log_key = f'{date_prefix}/{timestamp}-{event_type}.json'
+        # Consolidate logs per hour
+        log_key = f'{date_prefix}/{hour}00-audit.jsonl'
+        
+        # Append to existing file (JSONL format - one JSON per line)
+        log_line = json.dumps(log_entry) + '\n'
+        
+        # Get existing content if file exists
+        try:
+            existing = s3.get_object(Bucket=AUDIT_BUCKET, Key=log_key)
+            existing_content = existing['Body'].read()
+            new_content = existing_content + log_line.encode('utf-8')
+        except s3.exceptions.NoSuchKey:
+            new_content = log_line.encode('utf-8')
+        
+        # Write back
         s3.put_object(
             Bucket=AUDIT_BUCKET,
             Key=log_key,
-            Body=json.dumps(log_entry),
-            ContentType='application/json'
+            Body=new_content,
+            ContentType='application/x-ndjson'
         )
     except Exception as e:
         logger.error(f'Failed to log audit: {str(e)}')
