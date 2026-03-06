@@ -93,9 +93,17 @@ body.dark-mode input::placeholder {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
 }
 
+.grid-card[style*="border: 2px solid"] {
+  background-color: #e3f2fd !important;
+}
+
 body.dark-mode .grid-card {
   background-color: #1c1c1e !important;
   border-color: #38383a !important;
+}
+
+body.dark-mode .grid-card[style*="border: 2px solid"] {
+  background-color: #1a3a52 !important;
 }
 
 body.dark-mode .grid-card-hover {
@@ -266,11 +274,19 @@ body.dark-mode .destination-modal p {
   color: #1c1c1e;
 }
 
-body.dark-mode .destination-bucket-name {
+.destination-folder-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+body.dark-mode .destination-bucket-name,
+body.dark-mode .destination-folder-name {
   color: #ffffff !important;
 }
 
-body.dark-mode .destination-bucket-item {
+body.dark-mode .destination-bucket-item,
+body.dark-mode .destination-folder-item {
   background-color: #2c2c2e !important;
   border-color: #38383a !important;
 }
