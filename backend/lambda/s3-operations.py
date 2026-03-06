@@ -769,11 +769,16 @@ def generate_zip_download(bucket, event):
     zip_key = f'{user_email}/{timestamp}.zip'
     
     # Use default S3 client for temp bucket
+    # Set expiration to 1 hour from now
+    from datetime import timedelta
+    expiration_time = datetime.now() + timedelta(hours=1)
+    
     s3.put_object(
         Bucket=temp_bucket,
         Key=zip_key,
         Body=zip_buffer.getvalue(),
-        ContentType='application/zip'
+        ContentType='application/zip',
+        Expires=expiration_time
     )
     
     # Generate presigned URL for the zip
