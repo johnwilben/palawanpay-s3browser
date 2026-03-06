@@ -158,3 +158,17 @@
   color: #1c1c1e;
   font-weight: 600;
 }
+
+/* Dark mode for help content */
+body.dark-mode .help-content li,
+body.dark-mode .help-content p {
+  color: #98989d;
+}
+
+body.dark-mode .help-content strong {
+  color: #ffffff;
+}
+
+body.dark-mode .help-content h3 {
+  color: #0a84ff;
+}
