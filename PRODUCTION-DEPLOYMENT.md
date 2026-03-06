@@ -1,8 +1,37 @@
 # S3 Browser - Production Deployment Documentation
 
 **Account:** 721010870103 (minitempproject-prod)  
-**Deployment Date:** March 5, 2026  
-**Application URL:** https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/
+**Deployment Date:** March 5-6, 2026  
+**Application URL:** https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com/  
+**Version:** 2.0
+
+---
+
+## What's New in Version 2.0
+
+**User Interface Enhancements**:
+- 🎨 Dark mode support with toggle (🌙/☀️)
+- 📊 Grid/List view toggle (default: grid)
+- 🔍 Search and sort functionality
+- 📁 Folder navigation with breadcrumbs
+- 🎯 Apple-style design language
+- 📱 Improved responsive design
+
+**File Operations**:
+- 📤 Multi-file upload with drag-and-drop
+- 📋 Copy files between buckets
+- ➡️ Move files between buckets
+- 🗑️ Apple-style delete confirmation (type "delete")
+- 📦 ZIP download for multiple files
+- ✅ Bulk operations (select multiple files)
+
+**User Experience**:
+- 🔔 Toast notifications for actions
+- ❓ Floating help button with guides
+- 🎯 Icon-based action buttons (↓ 📋 ➡️ 🗑️)
+- 🖼️ Favicon and meta tags
+- 🎨 Destination picker modal for copy/move
+- ⚡ Real-time upload progress tracking
 
 ---
 
@@ -25,6 +54,15 @@
    - Role: S3BrowserLambdaRole
    - Permissions: S3 Full Access, AssumeRole for cross-account
    - CloudWatch Logging: /aws/lambda/s3browser-operations
+   - **Endpoints**:
+     - `/buckets` - List accessible buckets
+     - `/buckets/{bucket}/objects` - List files/folders with delimiter
+     - `/buckets/{bucket}/upload` - Upload files
+     - `/buckets/{bucket}/delete` - Delete files
+     - `/buckets/{bucket}/copy` - Copy files between buckets
+     - `/buckets/{bucket}/move` - Move files between buckets
+     - `/buckets/{bucket}/download` - Generate presigned download URL
+     - `/buckets/{bucket}/download-zip` - Create ZIP for multiple files
 
 4. **Amplify App** (d32el4qcx14shm)
    - Branch: feature/cross-account-access
