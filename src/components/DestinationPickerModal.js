@@ -8,6 +8,7 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
   const [folders, setFolders] = useState([]);
   const [currentPath, setCurrentPath] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingBuckets, setLoadingBuckets] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -16,6 +17,7 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
   }, [isOpen]);
 
   const loadBuckets = async () => {
+    setLoadingBuckets(true);
     try {
       const session = await fetchAuthSession();
       const response = await get({
@@ -34,6 +36,8 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
       setBuckets(writableBuckets);
     } catch (err) {
       console.error('Error loading buckets:', err);
+    } finally {
+      setLoadingBuckets(false);
     }
   };
 
@@ -189,26 +193,36 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
               <p style={{fontSize: '13px', color: '#8e8e93', marginBottom: '1rem'}}>
                 Select destination bucket:
               </p>
-              {buckets.map(bucket => (
-                <div
-                  key={bucket.name}
-                  onClick={() => handleBucketSelect(bucket)}
-                  style={{
-                    padding: '1rem',
-                    backgroundColor: '#f9f9f9',
-                    borderRadius: '10px',
-                    marginBottom: '0.5rem',
-                    cursor: 'pointer',
-                    border: '1px solid #e5e5ea'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f2f2f7'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
-                >
-                  <div style={{fontSize: '15px', fontWeight: '500', color: '#1c1c1e'}}>
-                    🪣 {bucket.name}
+              {loadingBuckets ? (
+                <p style={{textAlign: 'center', color: '#8e8e93', padding: '2rem'}}>
+                  Loading buckets...
+                </p>
+              ) : buckets.length === 0 ? (
+                <p style={{textAlign: 'center', color: '#8e8e93', padding: '2rem'}}>
+                  No writable buckets available
+                </p>
+              ) : (
+                buckets.map(bucket => (
+                  <div
+                    key={bucket.name}
+                    onClick={() => handleBucketSelect(bucket)}
+                    style={{
+                      padding: '1rem',
+                      backgroundColor: '#f9f9f9',
+                      borderRadius: '10px',
+                      marginBottom: '0.5rem',
+                      cursor: 'pointer',
+                      border: '1px solid #e5e5ea'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f2f2f7'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
+                  >
+                    <div style={{fontSize: '15px', fontWeight: '500', color: '#1c1c1e'}}>
+                      🪣 {bucket.name}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           ) : (
             <div>

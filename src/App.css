@@ -51,7 +51,12 @@ body.dark-mode .file-item:hover {
 }
 
 body.dark-mode .file-item:hover .file-name,
+body.dark-mode .file-item:hover .file-size,
 body.dark-mode .file-item:hover div[style*="color"] {
+  color: #ffffff !important;
+}
+
+body.dark-mode .file-item:hover span[style*="color"] {
   color: #ffffff !important;
 }
 

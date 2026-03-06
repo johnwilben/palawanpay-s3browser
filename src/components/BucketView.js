@@ -200,6 +200,34 @@ function BucketView() {
     setDestinationModalOpen(true);
   };
 
+  const handleCreateFolder = async (folderName) => {
+    try {
+      // Create a placeholder file to create the folder
+      const session = await fetchAuthSession();
+      const folderPath = currentPrefix + folderName + '/.folder';
+      
+      await post({
+        apiName: 'S3BrowserAPI',
+        path: `/buckets/${bucketName}/upload`,
+        options: {
+          headers: {
+            Authorization: `Bearer ${session.tokens.idToken}`
+          },
+          body: {
+            fileName: folderPath,
+            fileType: 'text/plain',
+            fileContent: btoa('') // Empty file
+          }
+        }
+      }).response;
+      
+      loadBucketContents(currentPrefix);
+      showToast(`Folder "${folderName}" created`);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const confirmCopyMove = async (destBucket, destPrefix) => {
     try {
       for (const key of selectedFiles) {
@@ -345,12 +373,26 @@ function BucketView() {
           </h2>
         </div>
         {canWrite && (
-          <button 
-            onClick={() => navigate(`/bucket/${bucketName}/upload${currentPrefix ? `?prefix=${currentPrefix}` : ''}`)}
-            className="btn-upload"
-          >
-            Upload Files
-          </button>
+          <div style={{display: 'flex', gap: '0.5rem'}}>
+            <button 
+              onClick={() => {
+                const folderName = prompt('Enter folder name:');
+                if (folderName) {
+                  handleCreateFolder(folderName);
+                }
+              }}
+              className="btn-upload"
+              style={{background: '#34c759'}}
+            >
+              Create Folder
+            </button>
+            <button 
+              onClick={() => navigate(`/bucket/${bucketName}/upload${currentPrefix ? `?prefix=${currentPrefix}` : ''}`)}
+              className="btn-upload"
+            >
+              Upload Files
+            </button>
+          </div>
         )}
       </div>
 
