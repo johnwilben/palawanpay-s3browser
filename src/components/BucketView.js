@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { get, post } from 'aws-amplify/api';
+import { get, post, put } from 'aws-amplify/api';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import DestinationPickerModal from './DestinationPickerModal';
 import PromptModal from './PromptModal';
@@ -664,6 +664,7 @@ function BucketView() {
             <div
               key={folder.name}
               onClick={() => navigateToFolder(folder.name)}
+              className="grid-card"
               style={{
                 padding: '1rem',
                 backgroundColor: 'white',
@@ -675,14 +676,10 @@ function BucketView() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f9f9f9';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                e.currentTarget.classList.add('grid-card-hover');
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'white';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                e.currentTarget.classList.remove('grid-card-hover');
               }}
             >
               <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📁</div>
@@ -694,6 +691,7 @@ function BucketView() {
           {filteredFiles.map(file => (
             <div
               key={file.key}
+              className="grid-card"
               style={{
                 padding: '1rem',
                 backgroundColor: 'white',
@@ -706,16 +704,12 @@ function BucketView() {
               }}
               onMouseEnter={(e) => {
                 if (!selectedFiles.includes(file.key)) {
-                  e.currentTarget.style.backgroundColor = '#f9f9f9';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                  e.currentTarget.classList.add('grid-card-hover');
                 }
               }}
               onMouseLeave={(e) => {
                 if (!selectedFiles.includes(file.key)) {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                  e.currentTarget.classList.remove('grid-card-hover');
                 }
               }}
             >

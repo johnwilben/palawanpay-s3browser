@@ -87,6 +87,21 @@ body.dark-mode input::placeholder {
   margin-bottom: 0.75rem;
 }
 
+.grid-card-hover {
+  background-color: #f9f9f9 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+body.dark-mode .grid-card {
+  background-color: #1c1c1e !important;
+  border-color: #38383a !important;
+}
+
+body.dark-mode .grid-card-hover {
+  background-color: #2c2c2e !important;
+}
+
 body.dark-mode .grid-card-text {
   color: #ffffff !important;
 }
@@ -96,13 +111,11 @@ body.dark-mode .grid-card-size {
 }
 
 /* Ensure text stays visible on hover in dark mode */
-body.dark-mode div:hover > .grid-card-text,
-body.dark-mode div[style*="backgroundColor"]:hover .grid-card-text {
+body.dark-mode .grid-card-hover .grid-card-text {
   color: #ffffff !important;
 }
 
-body.dark-mode div:hover > .grid-card-size,
-body.dark-mode div[style*="backgroundColor"]:hover .grid-card-size {
+body.dark-mode .grid-card-hover .grid-card-size {
   color: #98989d !important;
 }
 
@@ -245,6 +258,21 @@ body.dark-mode .destination-modal div[style*="color: rgb(28, 28, 30)"] {
 
 body.dark-mode .destination-modal p {
   color: #98989d !important;
+}
+
+.destination-bucket-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+body.dark-mode .destination-bucket-name {
+  color: #ffffff !important;
+}
+
+body.dark-mode .destination-bucket-item {
+  background-color: #2c2c2e !important;
+  border-color: #38383a !important;
 }
 
 body.dark-mode .destination-modal div[style*="backgroundColor: '#f9f9f9'"],

@@ -206,6 +206,7 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
                   <div
                     key={bucket.name}
                     onClick={() => handleBucketSelect(bucket)}
+                    className="destination-bucket-item"
                     style={{
                       padding: '1rem',
                       backgroundColor: '#f9f9f9',
@@ -217,7 +218,7 @@ function DestinationPickerModal({ isOpen, onClose, onConfirm, action, selectedCo
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f2f2f7'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
                   >
-                    <div style={{fontSize: '15px', fontWeight: '500', color: '#1c1c1e'}}>
+                    <div className="destination-bucket-name">
                       🪣 {bucket.name}
                     </div>
                   </div>
