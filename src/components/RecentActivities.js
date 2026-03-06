@@ -52,6 +52,7 @@ function RecentActivities({ bucketName }) {
   };
 
   const formatTime = (timestamp) => {
+    // Timestamps are already in Philippine Time from Lambda
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now - date;
@@ -59,11 +60,18 @@ function RecentActivities({ bucketName }) {
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
+    
+    // Format date
+    return date.toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '5rem', left: '2rem', zIndex: 1000 }}>
+    <div style={{ position: 'fixed', bottom: '2rem', left: '2rem', zIndex: 1000 }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -111,7 +119,7 @@ function RecentActivities({ bucketName }) {
           <div
             style={{
               position: 'fixed',
-              bottom: '12rem',
+              bottom: '9rem',
               left: '2rem',
               width: '400px',
               maxHeight: '500px',

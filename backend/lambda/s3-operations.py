@@ -20,7 +20,9 @@ AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
 def log_audit(event_type, user_email, bucket, key='', details=None):
     """Log audit events to S3 - consolidated per hour"""
     try:
-        timestamp = datetime.utcnow()
+        # Use Philippine Time (UTC+8)
+        from datetime import timedelta
+        timestamp = datetime.utcnow() + timedelta(hours=8)
         date_prefix = timestamp.strftime('%Y/%m/%d')
         hour = timestamp.strftime('%H')
         
