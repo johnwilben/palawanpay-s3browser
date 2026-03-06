@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { get, post } from 'aws-amplify/api';
+import DeleteConfirmModal from './DeleteConfirmModal';
+import DestinationPickerModal from './DestinationPickerModal';
 
 function BucketView() {
   const { bucketName } = useParams();
@@ -18,6 +20,10 @@ function BucketView() {
   const [sortBy, setSortBy] = useState('name-asc');
   const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'grid');
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [destinationModalOpen, setDestinationModalOpen] = useState(false);
+  const [copyMoveAction, setCopyMoveAction] = useState(null);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -179,36 +185,45 @@ function BucketView() {
     }
   };
 
-  const handleBulkDelete = async () => {
-    const fileCount = selectedFiles.length;
-    const fileWord = fileCount === 1 ? 'file' : 'files';
-    
-    const userInput = prompt(`Delete ${fileCount} ${fileWord}?\n\nThis will permanently delete the selected ${fileWord}.\n\nType "delete" to confirm:`);
-    
-    if (userInput !== 'delete') {
-      if (userInput !== null) {
-        alert('Deletion cancelled. You must type "delete" to confirm.');
-      }
-      return;
-    }
+  const handleBulkDelete = () => {
+    setDeleteTarget({ isBulk: true, count: selectedFiles.length });
+    setDeleteModalOpen(true);
+  };
 
+  const handleCopy = () => {
+    setCopyMoveAction('copy');
+    setDestinationModalOpen(true);
+  };
+
+  const handleMove = () => {
+    setCopyMoveAction('move');
+    setDestinationModalOpen(true);
+  };
+
+  const confirmCopyMove = async (destBucket, destPrefix) => {
     try {
       for (const key of selectedFiles) {
         const session = await fetchAuthSession();
         await post({
           apiName: 'S3BrowserAPI',
-          path: `/buckets/${bucketName}/delete`,
+          path: `/buckets/${bucketName}/${copyMoveAction}`,
           options: {
             headers: {
               Authorization: `Bearer ${session.tokens.idToken}`
             },
-            body: { key }
+            body: {
+              sourceKey: key,
+              destBucket: destBucket,
+              destPrefix: destPrefix
+            }
           }
         }).response;
       }
+      
       setSelectedFiles([]);
       loadBucketContents(currentPrefix);
-      showToast(`${fileCount} ${fileWord} deleted`);
+      setDestinationModalOpen(false);
+      showToast(`${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} ${copyMoveAction === 'copy' ? 'copied' : 'moved'}`);
     } catch (err) {
       setError(err.message);
     }
@@ -235,31 +250,51 @@ function BucketView() {
     }
   };
 
-  const handleDelete = async (key, fileName) => {
-    const userInput = prompt(`To delete "${fileName}", type "delete" to confirm:\n\nThis action cannot be undone.`);
-    
-    if (userInput !== 'delete') {
-      if (userInput !== null) {
-        alert('Deletion cancelled. You must type "delete" to confirm.');
-      }
-      return;
-    }
+  const handleDelete = (key, fileName) => {
+    setDeleteTarget({ key, fileName, isBulk: false });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
     try {
-      const session = await fetchAuthSession();
-      await post({
-        apiName: 'S3BrowserAPI',
-        path: `/buckets/${bucketName}/delete`,
-        options: {
-          headers: {
-            Authorization: `Bearer ${session.tokens.idToken}`
-          },
-          body: { key }
+      if (deleteTarget.isBulk) {
+        // Bulk delete
+        for (const key of selectedFiles) {
+          const session = await fetchAuthSession();
+          await post({
+            apiName: 'S3BrowserAPI',
+            path: `/buckets/${bucketName}/delete`,
+            options: {
+              headers: {
+                Authorization: `Bearer ${session.tokens.idToken}`
+              },
+              body: { key }
+            }
+          }).response;
         }
-      }).response;
+        setSelectedFiles([]);
+        showToast(`${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} deleted`);
+      } else {
+        // Single delete
+        const session = await fetchAuthSession();
+        await post({
+          apiName: 'S3BrowserAPI',
+          path: `/buckets/${bucketName}/delete`,
+          options: {
+            headers: {
+              Authorization: `Bearer ${session.tokens.idToken}`
+            },
+            body: { key: deleteTarget.key }
+          }
+        }).response;
+        showToast(`"${deleteTarget.fileName}" deleted`);
+      }
       
       loadBucketContents(currentPrefix);
-      showToast(`"${fileName}" deleted`);
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
     } catch (err) {
       setError(err.message);
     }
@@ -340,6 +375,44 @@ function BucketView() {
               title="Download selected files"
             >
               ↓ {selectedFiles.length}
+            </button>
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: '0.625rem 0.875rem',
+                backgroundColor: '#34c759',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              title="Copy selected files"
+            >
+              📋 {selectedFiles.length}
+            </button>
+            <button
+              onClick={handleMove}
+              style={{
+                padding: '0.625rem 0.875rem',
+                backgroundColor: '#ff9500',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              title="Move selected files"
+            >
+              ➡️ {selectedFiles.length}
             </button>
             {canWrite && (
               <button
@@ -716,6 +789,28 @@ function BucketView() {
           {toast}
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeleteTarget(null);
+        }}
+        onConfirm={confirmDelete}
+        fileName={deleteTarget?.fileName}
+        fileCount={deleteTarget?.isBulk ? deleteTarget.count : 1}
+      />
+
+      <DestinationPickerModal
+        isOpen={destinationModalOpen}
+        onClose={() => {
+          setDestinationModalOpen(false);
+          setCopyMoveAction(null);
+        }}
+        onConfirm={confirmCopyMove}
+        action={copyMoveAction}
+        selectedCount={selectedFiles.length}
+      />
     </div>
   );
 }
