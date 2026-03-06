@@ -382,6 +382,9 @@ def lambda_handler(event, context):
         elif path.startswith('/buckets/') and path.endswith('/upload') and method == 'POST':
             bucket = path.split('/')[2]
             return generate_upload_url(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/activities') and method == 'GET':
+            bucket = path.split('/')[2]
+            return get_recent_activities(bucket, event)
         elif path.startswith('/buckets/') and '/objects' in path and method == 'PUT':
             bucket = path.split('/')[2]
             return create_folder(bucket, event)
@@ -832,7 +835,56 @@ def check_permissions(bucket, s3_client=None):
         can_write = False
     
     return {'canRead': can_read, 'canWrite': can_write}
-    return {'canRead': can_read, 'canWrite': can_write}
+
+def get_recent_activities(bucket, event):
+    """Get recent activities for a bucket from audit logs"""
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    # Check if user has access to this bucket
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    try:
+        # Get today's and yesterday's logs
+        from datetime import timedelta
+        activities = []
+        
+        for days_ago in range(2):  # Today and yesterday
+            date = datetime.utcnow() - timedelta(days=days_ago)
+            date_prefix = date.strftime('%Y/%m/%d')
+            
+            # List all hour files for this date
+            try:
+                result = s3.list_objects_v2(
+                    Bucket=AUDIT_BUCKET,
+                    Prefix=date_prefix + '/'
+                )
+                
+                for obj in result.get('Contents', []):
+                    # Download and parse each hour file
+                    log_obj = s3.get_object(Bucket=AUDIT_BUCKET, Key=obj['Key'])
+                    log_content = log_obj['Body'].read().decode('utf-8')
+                    
+                    # Parse JSONL (one JSON per line)
+                    for line in log_content.strip().split('\n'):
+                        if line:
+                            entry = json.loads(line)
+                            # Filter by bucket
+                            if entry.get('bucket') == bucket:
+                                activities.append(entry)
+            except:
+                pass  # No logs for this date
+        
+        # Sort by timestamp (newest first) and limit to 20
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        activities = activities[:20]
+        
+        return response(200, {'activities': activities})
+    except Exception as e:
+        logger.error(f'Failed to get activities: {str(e)}')
+        return response(500, {'error': 'Failed to load activities'})
 
 def response(status_code, body):
     return {

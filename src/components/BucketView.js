@@ -5,6 +5,7 @@ import { get, post, put } from 'aws-amplify/api';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import DestinationPickerModal from './DestinationPickerModal';
 import PromptModal from './PromptModal';
+import RecentActivities from './RecentActivities';
 
 function BucketView() {
   const { bucketName } = useParams();
@@ -337,13 +338,16 @@ function BucketView() {
     <div className="bucket-view">
       <div className="bucket-header">
         <div>
-          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem'}}>
-            <button onClick={goBack} className="btn-back">
-              ← Back
-            </button>
-            <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
-              Return to Home
-            </button>
+          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center', justifyContent: 'space-between'}}>
+            <div style={{display: 'flex', gap: '0.5rem'}}>
+              <button onClick={goBack} className="btn-back">
+                ← Back
+              </button>
+              <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
+                Return to Home
+              </button>
+            </div>
+            <RecentActivities bucketName={bucketName} />
           </div>
           <h2 style={{marginTop: '0.5rem'}}>
             {bucketName}
