@@ -204,21 +204,18 @@ function BucketView() {
 
   const handleCreateFolder = async (folderName) => {
     try {
-      // Create a placeholder file to create the folder
       const session = await fetchAuthSession();
-      const folderPath = currentPrefix + folderName + '/.folder';
+      const folderPath = currentPrefix + folderName + '/';
       
-      await post({
+      await put({
         apiName: 'S3BrowserAPI',
-        path: `/buckets/${bucketName}/upload`,
+        path: `/buckets/${bucketName}/objects`,
         options: {
           headers: {
             Authorization: `Bearer ${session.tokens.idToken}`
           },
           body: {
-            fileName: folderPath,
-            fileType: 'text/plain',
-            fileContent: btoa('') // Empty file
+            key: folderPath
           }
         }
       }).response;

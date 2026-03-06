@@ -95,6 +95,15 @@ body.dark-mode .grid-card-size {
   color: #98989d !important;
 }
 
+/* Ensure text stays visible on hover in dark mode */
+body.dark-mode div:hover > .grid-card-text {
+  color: #ffffff !important;
+}
+
+body.dark-mode div:hover > .grid-card-size {
+  color: #98989d !important;
+}
+
 /* Dark mode for prompt modal */
 body.dark-mode .prompt-modal {
   background-color: #1c1c1e !important;

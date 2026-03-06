@@ -339,6 +339,9 @@ def lambda_handler(event, context):
         elif path.startswith('/buckets/') and path.endswith('/upload') and method == 'POST':
             bucket = path.split('/')[2]
             return generate_upload_url(bucket, event)
+        elif path.startswith('/buckets/') and '/objects' in path and method == 'PUT':
+            bucket = path.split('/')[2]
+            return create_folder(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/delete') and method == 'POST':
             bucket = path.split('/')[2]
             return delete_object(bucket, event)
@@ -508,6 +511,39 @@ def generate_upload_url(bucket, event):
             ContentType=file_type
         )
         return response(200, {'success': True})
+
+def create_folder(bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    # Check if user has write permission for this bucket
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission or user_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access denied to this bucket'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    
+    body = json.loads(event.get('body', '{}'))
+    key = body.get('key')
+    
+    if not key or not key.endswith('/'):
+        return response(400, {'error': 'Invalid folder key'})
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not key.startswith(prefix):
+        return response(403, {'error': f'Can only create folders in {prefix}'})
+    
+    # Create folder by putting empty object with trailing slash
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=b''
+    )
+    
+    return response(200, {'success': True, 'key': key})
+
     
     return response(400, {'error': 'No file content'})
 

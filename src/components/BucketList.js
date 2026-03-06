@@ -13,6 +13,8 @@ function BucketList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,6 +58,10 @@ function BucketList() {
     localStorage.setItem('viewMode', mode);
   };
 
+  const filteredBuckets = buckets.filter(bucket =>
+    bucket.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return (
     <div className="loading">
       <div className="spinner"></div>
@@ -68,44 +74,84 @@ function BucketList() {
     <div>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
         <h2>Your S3 Buckets</h2>
-        <div style={{display: 'flex', gap: '0.5rem', padding: '0.25rem', backgroundColor: '#f2f2f7', borderRadius: '10px'}}>
+        <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
           <button
-            onClick={() => toggleViewMode('list')}
+            onClick={() => setShowSearch(!showSearch)}
             style={{
               padding: '0.5rem 0.75rem',
               border: 'none',
-              borderRadius: '8px',
-              backgroundColor: viewMode === 'list' ? 'white' : 'transparent',
+              borderRadius: '10px',
+              backgroundColor: showSearch ? '#007aff' : '#f2f2f7',
+              color: showSearch ? 'white' : '#1c1c1e',
               cursor: 'pointer',
               fontSize: '18px',
-              transition: 'all 0.2s ease',
-              boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              transition: 'all 0.2s ease'
             }}
-            title="List view"
+            title="Search buckets"
           >
-            ☰
+            🔍
           </button>
-          <button
-            onClick={() => toggleViewMode('grid')}
-            style={{
-              padding: '0.5rem 0.75rem',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: viewMode === 'grid' ? 'white' : 'transparent',
-              cursor: 'pointer',
-              fontSize: '18px',
-              transition: 'all 0.2s ease',
-              boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-            }}
-            title="Grid view"
-          >
-            ⊞
-          </button>
+          <div style={{display: 'flex', gap: '0.5rem', padding: '0.25rem', backgroundColor: '#f2f2f7', borderRadius: '10px'}}>
+            <button
+              onClick={() => toggleViewMode('list')}
+              style={{
+                padding: '0.5rem 0.75rem',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: viewMode === 'list' ? 'white' : 'transparent',
+                cursor: 'pointer',
+                fontSize: '18px',
+                transition: 'all 0.2s ease',
+                boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+              title="List view"
+            >
+              ☰
+            </button>
+            <button
+              onClick={() => toggleViewMode('grid')}
+              style={{
+                padding: '0.5rem 0.75rem',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: viewMode === 'grid' ? 'white' : 'transparent',
+                cursor: 'pointer',
+                fontSize: '18px',
+                transition: 'all 0.2s ease',
+                boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+              title="Grid view"
+            >
+              ⊞
+            </button>
+          </div>
         </div>
       </div>
+
+      {showSearch && (
+        <div style={{marginBottom: '1rem'}}>
+          <input
+            type="text"
+            placeholder="Search buckets..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              fontSize: '15px',
+              border: '1px solid #d1d1d6',
+              borderRadius: '10px',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+      )}
+
       {viewMode === 'grid' ? (
         <div className="bucket-grid">
-          {buckets.map(bucket => (
+          {filteredBuckets.map(bucket => (
             <div
               key={bucket.name}
               className="bucket-card"
@@ -121,7 +167,7 @@ function BucketList() {
         </div>
       ) : (
         <ul className="file-list">
-          {buckets.map(bucket => (
+          {filteredBuckets.map(bucket => (
             <li
               key={bucket.name}
               className="file-item"
@@ -140,7 +186,7 @@ function BucketList() {
           ))}
         </ul>
       )}
-      {buckets.length === 0 && <p>No buckets available</p>}
+      {filteredBuckets.length === 0 && <p>No buckets found</p>}
     </div>
   );
 }
