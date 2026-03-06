@@ -52,7 +52,10 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, fileName, fileCount })
           color: '#1c1c1e',
           textAlign: 'center'
         }}>
-          {isSingleFile ? `Delete "${fileName}"?` : `Delete ${fileCount} ${fileWord}?`}
+          {isSingleFile 
+            ? (fileName ? `Delete "${fileName}"?` : 'Delete this file?')
+            : `Delete ${fileCount} ${fileWord}?`
+          }
         </h3>
         
         <p style={{

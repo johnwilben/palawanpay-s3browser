@@ -63,7 +63,7 @@ function RecentActivities({ bucketName }) {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '5rem', right: '2rem', zIndex: 1000 }}>
+    <div style={{ position: 'fixed', bottom: '5rem', left: '2rem', zIndex: 1000 }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -112,7 +112,7 @@ function RecentActivities({ bucketName }) {
             style={{
               position: 'fixed',
               bottom: '12rem',
-              right: '2rem',
+              left: '2rem',
               width: '400px',
               maxHeight: '500px',
               backgroundColor: 'white',
