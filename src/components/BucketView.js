@@ -279,7 +279,9 @@ function BucketView() {
   };
 
   const handleDelete = (key, fileName) => {
-    setDeleteTarget({ key, fileName: fileName || key.split('/').pop(), isBulk: false });
+    // Extract filename from key if fileName is not provided or is undefined
+    const displayName = fileName && fileName.trim() ? fileName : key.split('/').pop();
+    setDeleteTarget({ key, fileName: displayName, isBulk: false });
     setDeleteModalOpen(true);
   };
 
@@ -338,16 +340,13 @@ function BucketView() {
     <div className="bucket-view">
       <div className="bucket-header">
         <div>
-          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center', justifyContent: 'space-between'}}>
-            <div style={{display: 'flex', gap: '0.5rem'}}>
-              <button onClick={goBack} className="btn-back">
-                ← Back
-              </button>
-              <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
-                Return to Home
-              </button>
-            </div>
-            <RecentActivities bucketName={bucketName} />
+          <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem'}}>
+            <button onClick={goBack} className="btn-back">
+              ← Back
+            </button>
+            <button onClick={() => navigate('/')} className="btn-back" style={{background: '#8e8e93'}}>
+              Return to Home
+            </button>
           </div>
           <h2 style={{marginTop: '0.5rem'}}>
             {bucketName}
@@ -844,6 +843,8 @@ function BucketView() {
         message="Enter a name for the new folder"
         placeholder="Folder name"
       />
+
+      <RecentActivities bucketName={bucketName} />
     </div>
   );
 }

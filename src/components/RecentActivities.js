@@ -63,27 +63,35 @@ function RecentActivities({ bucketName }) {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'fixed', bottom: '5rem', right: '2rem', zIndex: 1000 }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          padding: '0.5rem 1rem',
-          backgroundColor: '#f2f2f7',
+          width: '56px',
+          height: '56px',
+          backgroundColor: '#007aff',
           border: 'none',
-          borderRadius: '10px',
+          borderRadius: '50%',
           cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: '500',
-          color: '#1c1c1e',
+          fontSize: '24px',
+          color: 'white',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(0, 122, 255, 0.3)',
           transition: 'all 0.2s ease'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e5ea'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f2f2f7'}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 122, 255, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 122, 255, 0.3)';
+        }}
+        title="Recent Activities"
       >
-        📊 Recent Activities
+        📊
       </button>
 
       {isOpen && (
@@ -102,9 +110,9 @@ function RecentActivities({ bucketName }) {
           />
           <div
             style={{
-              position: 'absolute',
-              top: 'calc(100% + 0.5rem)',
-              right: 0,
+              position: 'fixed',
+              bottom: '12rem',
+              right: '2rem',
               width: '400px',
               maxHeight: '500px',
               backgroundColor: 'white',
