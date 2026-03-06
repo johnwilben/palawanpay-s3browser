@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cross-account role for S3 Browser access from account 721010870103'
+
+Parameters:
+  TrustedAccountId:
+    Type: String
+    Default: '721010870103'
+    Description: Account ID that can assume this role
+
+Resources:
+  S3BrowserCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: S3BrowserCrossAccountRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${TrustedAccountId}:role/S3BrowserLambdaRole'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: S3BrowserMinimalAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:ListAllMyBuckets'
+                  - 's3:GetBucketLocation'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 's3:ListBucket'
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                Resource:
+                  - 'arn:aws:s3:::*'
+                  - 'arn:aws:s3:::*/*'
+
+Outputs:
+  RoleArn:
+    Description: ARN of the cross-account role
+    Value: !GetAtt S3BrowserCrossAccountRole.Arn
+    Export:
+      Name: S3BrowserCrossAccountRoleArn
+  
+  DeploymentInstructions:
+    Description: How to deploy this stack
+    Value: !Sub |
+      Deploy this stack in accounts: 236300332446, 502174880086, 471112740803
+      
+      Command:
+      aws cloudformation create-stack \
+        --stack-name s3browser-cross-account-role \
+        --template-body file://cross-account-role-simple.yaml \
+        --capabilities CAPABILITY_NAMED_IAM \
+        --region ap-southeast-1 \
+        --profile <YOUR_PROFILE>
+      
+      Or via AWS Console:
+      1. Go to CloudFormation
+      2. Create stack
+      3. Upload this template
+      4. Accept defaults
+      5. Create stack

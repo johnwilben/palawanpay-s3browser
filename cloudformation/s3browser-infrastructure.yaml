@@ -85,13 +85,6 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - sts:AssumeRole
-                Resource:
-                  - !If [HasCrossAccount1, !Ref CrossAccountRoleArn1, !Ref AWS::NoValue]
-                  - !If [HasCrossAccount2, !Ref CrossAccountRoleArn2, !Ref AWS::NoValue]
-                  - !If [HasCrossAccount3, !Ref CrossAccountRoleArn3, !Ref AWS::NoValue]
-              - Effect: Allow
-                Action:
                   - identitystore:ListUsers
                   - identitystore:DescribeUser
                   - identitystore:ListGroupMemberships
