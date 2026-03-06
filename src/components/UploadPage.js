@@ -121,9 +121,10 @@ function UploadPage() {
         </button>
       </div>
 
-      <h2 style={{marginBottom: '1.5rem', color: '#1c1c1e'}}>Upload Files</h2>
+      <h2 style={{marginBottom: '1.5rem', color: '#1c1c1e'}} className="upload-title">Upload Files</h2>
       
       <div
+        className="upload-dropzone"
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -139,10 +140,10 @@ function UploadPage() {
         }}
       >
         <div style={{fontSize: '48px', marginBottom: '1rem'}}>📁</div>
-        <p style={{fontSize: '17px', color: '#1c1c1e', marginBottom: '0.5rem', fontWeight: '500'}}>
+        <p className="upload-text-primary" style={{fontSize: '17px', color: '#1c1c1e', marginBottom: '0.5rem', fontWeight: '500'}}>
           Drag and drop files here
         </p>
-        <p style={{fontSize: '15px', color: '#8e8e93', marginBottom: '1.5rem'}}>
+        <p className="upload-text-secondary" style={{fontSize: '15px', color: '#8e8e93', marginBottom: '1.5rem'}}>
           or
         </p>
         <label style={{

@@ -173,6 +173,24 @@ body.dark-mode .recent-activities-panel div[style*="color: '#8e8e93'"] {
   color: #98989d !important;
 }
 
+/* Upload page dark mode */
+body.dark-mode .upload-title {
+  color: #ffffff !important;
+}
+
+body.dark-mode .upload-dropzone {
+  background-color: #2c2c2e !important;
+  border-color: #38383a !important;
+}
+
+body.dark-mode .upload-text-primary {
+  color: #ffffff !important;
+}
+
+body.dark-mode .upload-text-secondary {
+  color: #98989d !important;
+}
+
 body.dark-mode .help-button {
   background: #0a84ff;
   box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
