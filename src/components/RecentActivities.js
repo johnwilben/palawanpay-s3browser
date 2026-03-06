@@ -169,11 +169,8 @@ function RecentActivities({ bucketName }) {
                     key={index}
                     style={{
                       padding: '0.75rem 1rem',
-                      borderBottom: index < activities.length - 1 ? '1px solid #f2f2f7' : 'none',
-                      transition: 'background-color 0.2s ease'
+                      borderBottom: index < activities.length - 1 ? '1px solid #f2f2f7' : 'none'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                   >
                     <div style={{
                       display: 'flex',
