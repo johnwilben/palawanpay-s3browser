@@ -14,6 +14,34 @@ sts = boto3.client('sts')
 identitystore = boto3.client('identitystore')
 sso_admin = boto3.client('sso-admin')
 
+# Audit log bucket
+AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
+
+def log_audit(event_type, user_email, bucket, key='', details=None):
+    """Log audit events to S3"""
+    try:
+        timestamp = datetime.utcnow().isoformat()
+        date_prefix = datetime.utcnow().strftime('%Y/%m/%d')
+        
+        log_entry = {
+            'timestamp': timestamp,
+            'event_type': event_type,
+            'user_email': user_email,
+            'bucket': bucket,
+            'key': key,
+            'details': details or {}
+        }
+        
+        log_key = f'{date_prefix}/{timestamp}-{event_type}.json'
+        s3.put_object(
+            Bucket=AUDIT_BUCKET,
+            Key=log_key,
+            Body=json.dumps(log_entry),
+            ContentType='application/json'
+        )
+    except Exception as e:
+        logger.error(f'Failed to log audit: {str(e)}')
+
 # IAM Identity Center configuration
 IDENTITY_STORE_ID = 'd-96677c10e5'
 IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-96677c10e5'
@@ -510,6 +538,7 @@ def generate_upload_url(bucket, event):
             Body=file_data,
             ContentType=file_type
         )
+        log_audit('UPLOAD', user_email, bucket, file_name, {'size': len(file_data), 'type': file_type})
         return response(200, {'success': True})
 
 def create_folder(bucket, event):
@@ -542,10 +571,8 @@ def create_folder(bucket, event):
         Body=b''
     )
     
+    log_audit('CREATE_FOLDER', user_email, bucket, key)
     return response(200, {'success': True, 'key': key})
-
-    
-    return response(400, {'error': 'No file content'})
 
 def delete_object(bucket, event):
     # Get user's groups
@@ -577,6 +604,7 @@ def delete_object(bucket, event):
         return response(403, {'error': f'Can only delete from {prefix}'})
     
     s3_client.delete_object(Bucket=bucket, Key=key)
+    log_audit('DELETE', user_email, bucket, key)
     
     return response(200, {'success': True})
 
@@ -614,6 +642,7 @@ def copy_object(source_bucket, event):
     copy_source = {'Bucket': source_bucket, 'Key': source_key}
     dest_client.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
     
+    log_audit('COPY', user_email, source_bucket, source_key, {'dest_bucket': dest_bucket, 'dest_key': dest_key})
     return response(200, {'success': True})
 
 def move_object(source_bucket, event):
@@ -651,6 +680,7 @@ def move_object(source_bucket, event):
     dest_client.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
     source_client.delete_object(Bucket=source_bucket, Key=source_key)
     
+    log_audit('MOVE', user_email, source_bucket, source_key, {'dest_bucket': dest_bucket, 'dest_key': dest_key})
     return response(200, {'success': True})
 
 def generate_download_url(bucket, event):
@@ -685,6 +715,7 @@ def generate_download_url(bucket, event):
         ExpiresIn=3600
     )
     
+    log_audit('DOWNLOAD', user_email, bucket, key)
     return response(200, {'downloadUrl': presigned_url})
 
 def generate_zip_download(bucket, event):

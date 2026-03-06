@@ -96,11 +96,13 @@ body.dark-mode .grid-card-size {
 }
 
 /* Ensure text stays visible on hover in dark mode */
-body.dark-mode div:hover > .grid-card-text {
+body.dark-mode div:hover > .grid-card-text,
+body.dark-mode div[style*="backgroundColor"]:hover .grid-card-text {
   color: #ffffff !important;
 }
 
-body.dark-mode div:hover > .grid-card-size {
+body.dark-mode div:hover > .grid-card-size,
+body.dark-mode div[style*="backgroundColor"]:hover .grid-card-size {
   color: #98989d !important;
 }
 
