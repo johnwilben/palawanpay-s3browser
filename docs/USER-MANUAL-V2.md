@@ -21,8 +21,10 @@ This guide will help you navigate and use the PalawanPay S3 Browser to access an
 11. [View Modes](#view-modes)
 12. [Dark Mode](#dark-mode)
 13. [Understanding Permissions](#understanding-permissions)
-14. [Troubleshooting](#troubleshooting)
-15. [Frequently Asked Questions](#frequently-asked-questions)
+14. [Audit Logs](#audit-logs)
+15. [Technical Details](#technical-details)
+16. [Troubleshooting](#troubleshooting)
+17. [Frequently Asked Questions](#frequently-asked-questions)
 
 ---
 
@@ -389,6 +391,96 @@ Your permissions are determined by your **IAM Identity Center groups**:
 - Multiple groups = combined permissions
 
 **To request access**: Contact your team lead or IT administrator.
+
+---
+
+## Audit Logs
+
+All operations performed through S3 Browser are logged for security and compliance.
+
+### What Gets Logged
+
+Every action is recorded with:
+- **Timestamp**: When the action occurred
+- **User Email**: Who performed the action
+- **Event Type**: What was done (UPLOAD, DELETE, COPY, MOVE, DOWNLOAD, etc.)
+- **Bucket**: Which bucket was accessed
+- **File Key**: Which file was affected
+- **Details**: Additional information (file size, destination, etc.)
+
+### Logged Events
+
+- **UPLOAD**: File uploaded
+- **DELETE**: File deleted
+- **COPY**: File copied to another location
+- **MOVE**: File moved to another location
+- **DOWNLOAD**: Single file downloaded
+- **DOWNLOAD_ZIP**: Multiple files downloaded as ZIP
+- **CREATE_FOLDER**: New folder created
+
+### Log Storage
+
+Logs are stored in S3 bucket: `palawanpay-s3browser-audit-logs`
+
+**Format**: `YYYY/MM/DD/HH00-audit.jsonl`
+- One file per hour
+- JSONL format (one JSON object per line)
+- Example: `2026/03/06/1400-audit.jsonl` contains all events from 14:00-14:59
+
+### Accessing Logs
+
+**Via AWS Console**:
+1. Go to S3 Console
+2. Open `palawanpay-s3browser-audit-logs` bucket
+3. Navigate to date folder (e.g., `2026/03/06/`)
+4. Download the hour file you need
+
+**Via AWS CLI**:
+```bash
+# List all logs
+aws s3 ls s3://palawanpay-s3browser-audit-logs/ --recursive
+
+# Download specific hour
+aws s3 cp s3://palawanpay-s3browser-audit-logs/2026/03/06/1400-audit.jsonl .
+
+# View with jq
+cat 1400-audit.jsonl | jq .
+```
+
+---
+
+## Technical Details
+
+### Temporary Files (Bulk Downloads)
+
+When you download multiple files, the system:
+1. Creates a ZIP file containing all selected files
+2. Stores it temporarily in `palawanpay-s3browser-temp` bucket
+3. Provides download link
+4. Auto-deletes after 1 day
+
+**Why a separate temp bucket?**
+- Keeps your buckets clean (no temp folders)
+- Organized by user email
+- Automatic cleanup
+- No manual maintenance needed
+
+**Temp file location**: `{user-email}/{timestamp}.zip`
+
+### Performance
+
+- **Caching**: Bucket list cached for 60 seconds
+- **Concurrent Operations**: Supports multiple simultaneous uploads
+- **Cross-Account**: Seamless access across AWS accounts
+- **Timeout**: Operations timeout after 30 seconds
+
+### Security
+
+- **Authentication**: IAM Identity Center (SSO)
+- **Authorization**: Group-based permissions
+- **Audit Trail**: All operations logged
+- **Encryption**: Data encrypted in transit (HTTPS)
+- **Session**: Auto-logout after token expiration
 
 ---
 
