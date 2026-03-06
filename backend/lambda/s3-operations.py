@@ -760,31 +760,34 @@ def generate_zip_download(bucket, event):
                 filename = key.split('/')[-1]
                 zip_file.writestr(filename, file_content)
             except Exception as e:
-                print(f"Error adding {key} to zip: {str(e)}")
+                logger.error(f"Error adding {key} to zip: {str(e)}")
     
-    # Upload zip to temp location in same bucket
+    # Upload zip to temp bucket (not user bucket)
     zip_buffer.seek(0)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    zip_key = f'temp/download_{timestamp}.zip'
+    temp_bucket = 'palawanpay-s3browser-temp'
+    zip_key = f'{user_email}/{timestamp}.zip'
     
-    s3_client.put_object(
-        Bucket=bucket,
+    # Use default S3 client for temp bucket
+    s3.put_object(
+        Bucket=temp_bucket,
         Key=zip_key,
         Body=zip_buffer.getvalue(),
         ContentType='application/zip'
     )
     
     # Generate presigned URL for the zip
-    presigned_url = s3_client.generate_presigned_url(
+    presigned_url = s3.generate_presigned_url(
         'get_object',
         Params={
-            'Bucket': bucket,
+            'Bucket': temp_bucket,
             'Key': zip_key,
             'ResponseContentDisposition': f'attachment; filename="download_{timestamp}.zip"'
         },
         ExpiresIn=3600
     )
     
+    log_audit('DOWNLOAD_ZIP', user_email, bucket, '', {'file_count': len(keys), 'zip_key': zip_key})
     return response(200, {'downloadUrl': presigned_url})
 
 def check_permissions(bucket, s3_client=None):
