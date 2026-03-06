@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { signInWithRedirect } from 'aws-amplify/auth';
@@ -9,6 +9,8 @@ import BucketView from './components/BucketView';
 import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
 import { DarkModeProvider, useDarkMode } from './DarkModeContext';
+
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 const components = {
   SignIn: {
@@ -45,6 +47,25 @@ const components = {
 
 function AppContent({ signOut, user }) {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const timeoutRef = useRef(null);
+
+  const resetTimer = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      signOut();
+    }, IDLE_TIMEOUT);
+  };
+
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer();
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   return (
     <BrowserRouter>
