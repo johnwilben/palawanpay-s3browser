@@ -4,6 +4,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { get, post } from 'aws-amplify/api';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import DestinationPickerModal from './DestinationPickerModal';
+import PromptModal from './PromptModal';
 
 function BucketView() {
   const { bucketName } = useParams();
@@ -17,11 +18,12 @@ function BucketView() {
   const [currentPrefix, setCurrentPrefix] = useState('');
   const [pathParts, setPathParts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('name-asc');
+  const [sortBy, setSortBy] = useState('date-desc');
   const [viewMode, setViewMode] = useState(localStorage.getItem('viewMode') || 'grid');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [destinationModalOpen, setDestinationModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState(null);
   const [toast, setToast] = useState(null);
@@ -279,7 +281,7 @@ function BucketView() {
   };
 
   const handleDelete = (key, fileName) => {
-    setDeleteTarget({ key, fileName, isBulk: false });
+    setDeleteTarget({ key, fileName: fileName || key.split('/').pop(), isBulk: false });
     setDeleteModalOpen(true);
   };
 
@@ -375,12 +377,7 @@ function BucketView() {
         {canWrite && (
           <div style={{display: 'flex', gap: '0.5rem'}}>
             <button 
-              onClick={() => {
-                const folderName = prompt('Enter folder name:');
-                if (folderName) {
-                  handleCreateFolder(folderName);
-                }
-              }}
+              onClick={() => setPromptModalOpen(true)}
               className="btn-upload"
               style={{background: '#34c759'}}
             >
@@ -692,13 +689,7 @@ function BucketView() {
               }}
             >
               <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📁</div>
-              <div style={{
-                fontSize: '13px',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
-                color: '#1c1c1e',
-                wordBreak: 'break-word',
-                fontWeight: '500'
-              }}>
+              <div className="grid-card-text">
                 {folder.name}
               </div>
             </div>
@@ -745,17 +736,10 @@ function BucketView() {
                 }}
               />
               <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📄</div>
-              <div style={{
-                fontSize: '13px',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
-                color: '#1c1c1e',
-                wordBreak: 'break-word',
-                marginBottom: '0.5rem',
-                fontWeight: '500'
-              }}>
+              <div className="grid-card-text">
                 {file.name}
               </div>
-              <div style={{fontSize: '11px', color: '#8e8e93', marginBottom: '0.75rem'}}>
+              <div className="grid-card-size">
                 {(file.size / 1024).toFixed(2)} KB
               </div>
               <div style={{display: 'flex', gap: '0.5rem'}}>
@@ -852,6 +836,18 @@ function BucketView() {
         onConfirm={confirmCopyMove}
         action={copyMoveAction}
         selectedCount={selectedFiles.length}
+      />
+
+      <PromptModal
+        isOpen={promptModalOpen}
+        onClose={() => setPromptModalOpen(false)}
+        onConfirm={(folderName) => {
+          handleCreateFolder(folderName);
+          setPromptModalOpen(false);
+        }}
+        title="Create Folder"
+        message="Enter a name for the new folder"
+        placeholder="Folder name"
       />
     </div>
   );
