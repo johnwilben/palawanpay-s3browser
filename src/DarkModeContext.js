@@ -21,6 +21,19 @@ export const DarkModeProvider = ({ children }) => {
         el.setAttribute('data-original-color', el.style.color);
         el.style.color = '#98989d';
       });
+      // Fix grid cards and destination modal
+      document.querySelectorAll('div[style*="fontSize: \'13px\'"]').forEach(el => {
+        if (el.style.color === 'rgb(28, 28, 30)' || el.style.color === '#1c1c1e') {
+          el.setAttribute('data-original-color', el.style.color);
+          el.style.color = '#ffffff';
+        }
+      });
+      document.querySelectorAll('div[style*="fontSize: \'15px\'"]').forEach(el => {
+        if (el.style.color === 'rgb(28, 28, 30)' || el.style.color === '#1c1c1e') {
+          el.setAttribute('data-original-color', el.style.color);
+          el.style.color = '#ffffff';
+        }
+      });
     } else {
       // Light mode - restore original colors
       document.querySelectorAll('[data-original-color]').forEach(el => {
