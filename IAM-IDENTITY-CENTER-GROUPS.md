@@ -84,6 +84,16 @@ AWS-s3browser-PCIC
 
 ---
 
+### Test Groups
+```
+AWS-s3-browser-test-confluent
+```
+
+**AWS-s3-browser-test-confluent:**
+- Full access (read + write + delete) to all buckets matching `test-*`
+
+---
+
 ## How to Create Groups
 
 1. Go to **IAM Identity Center Console**

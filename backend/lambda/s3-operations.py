@@ -176,6 +176,13 @@ GROUP_BUCKET_ACCESS = {
                 'permission': 'write'  # Read + Write + Delete
             }
         ]
+    },
+    
+    # Test Confluent - Full access to test buckets
+    'AWS-s3-browser-test-confluent': {
+        'buckets': [
+            {'pattern': 'test-*', 'permission': 'write'}  # Read + Write + Delete to all test-* buckets
+        ]
     }
 }
 
