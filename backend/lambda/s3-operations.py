@@ -809,9 +809,17 @@ def generate_zip_download(bucket, event):
             try:
                 obj = s3_client.get_object(Bucket=bucket, Key=key)
                 file_content = obj['Body'].read()
-                # Use just the filename, not the full path
-                filename = key.split('/')[-1]
-                zip_file.writestr(filename, file_content)
+                
+                # Preserve folder structure
+                # If downloading by prefix, remove the prefix from the path
+                if prefix:
+                    # Remove the prefix to create relative paths in ZIP
+                    zip_path = key[len(prefix):] if key.startswith(prefix) else key
+                else:
+                    # For individual files, use full path
+                    zip_path = key
+                
+                zip_file.writestr(zip_path, file_content)
             except Exception as e:
                 logger.error(f"Error adding {key} to zip: {str(e)}")
     
