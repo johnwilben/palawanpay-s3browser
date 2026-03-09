@@ -80,7 +80,7 @@ AWS-s3browser-PCIC
 ```
 
 **AWS-s3browser-PCIC:**
-- Read-only access to all buckets matching `s3-sftpserver-*`
+- Full access (read + write + delete) to all buckets matching `s3-sftpserver-*`
 
 ---
 

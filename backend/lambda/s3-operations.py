@@ -168,12 +168,12 @@ GROUP_BUCKET_ACCESS = {
         ]
     },
     
-    # PCIC - Read-only access to SFTP server bucket
+    # PCIC - Full access to SFTP server bucket
     'AWS-s3browser-PCIC': {
         'buckets': [
             {
                 'pattern': 's3-sftpserver-*',
-                'permission': 'read'  # Read-only
+                'permission': 'write'  # Read + Write + Delete
             }
         ]
     }

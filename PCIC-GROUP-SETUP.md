@@ -4,16 +4,17 @@
 
 **Group Name:** `AWS-s3browser-PCIC`
 
-**Access Level:** Read-only
+**Access Level:** Full access (Read + Write + Delete)
 
 **Buckets:** All buckets matching pattern `s3-sftpserver-*`
 
 **Permissions:**
 - ✅ View files and folders
 - ✅ Download files
-- ❌ Upload files
-- ❌ Delete files
-- ❌ Create folders
+- ✅ Upload files
+- ✅ Delete files
+- ✅ Create folders
+- ✅ Copy/Move files
 
 ---
 
@@ -25,7 +26,7 @@
 2. Click **Groups** in the left menu
 3. Click **Create group**
 4. Enter group name: `AWS-s3browser-PCIC`
-5. Description: `Read-only access to SFTP server buckets (s3-sftpserver-*)`
+5. Description: `Full access to SFTP server buckets (s3-sftpserver-*)`
 6. Click **Create group**
 
 ### 2. Add Users to Group
@@ -52,8 +53,8 @@
 
 1. Login as a PCIC user
 2. Should see only `s3-sftpserver-*` buckets
-3. Can view and download files
-4. Upload button should NOT appear (read-only)
+3. Can view, download, upload, and delete files
+4. Upload button should appear (full access)
 
 ### Expected Behavior
 
@@ -65,12 +66,13 @@
 - Browse folders
 - View file details
 - Download files
+- Upload files
+- Delete files
+- Create folders
+- Copy/Move files
 
 **Restricted Actions:**
-- Upload files (button hidden)
-- Delete files (button hidden)
-- Create folders (button hidden)
-- Copy/Move files (buttons hidden)
+- None (full access to s3-sftpserver-* buckets)
 
 ---
 
@@ -82,9 +84,7 @@
 - Check if bucket name matches `s3-sftpserver-*` pattern
 
 ### User sees upload button (should be read-only)
-- Check Lambda logs for group membership
-- Verify group name is exactly `AWS-s3browser-PCIC` (case-sensitive)
-- Check if user is in multiple groups (admin groups override)
+- Not applicable - PCIC has full access (read + write + delete)
 
 ### Bucket name doesn't match pattern
 If the actual bucket name is different (e.g., `pcic-sftp-bucket`):
