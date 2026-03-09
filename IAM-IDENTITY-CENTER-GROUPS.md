@@ -74,6 +74,16 @@ AWS-s3-browser-pgc-write
 
 ---
 
+### PCIC Group
+```
+AWS-s3browser-PCIC
+```
+
+**AWS-s3browser-PCIC:**
+- Read-only access to all buckets matching `s3-sftpserver-*`
+
+---
+
 ## How to Create Groups
 
 1. Go to **IAM Identity Center Console**
