@@ -781,15 +781,26 @@ def generate_zip_download(bucket, event):
     
     body = json.loads(event.get('body', '{}'))
     keys = body.get('keys', [])
+    prefix = body.get('prefix', '')
+    
+    # If prefix is provided, list all files in that folder
+    if prefix and not keys:
+        try:
+            list_response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            if 'Contents' in list_response:
+                keys = [obj['Key'] for obj in list_response['Contents'] if not obj['Key'].endswith('/')]
+        except Exception as e:
+            logger.error(f'Failed to list objects for prefix {prefix}: {str(e)}')
+            return response(500, {'error': 'Failed to list folder contents'})
     
     if not keys:
         return response(400, {'error': 'No files specified'})
     
     # Check prefix restriction
-    prefix = user_permission.get('prefix', '')
+    user_prefix = user_permission.get('prefix', '')
     for key in keys:
-        if prefix and not key.startswith(prefix):
-            return response(403, {'error': f'Can only access files in {prefix}'})
+        if user_prefix and not key.startswith(user_prefix):
+            return response(403, {'error': f'Can only access files in {user_prefix}'})
     
     # Create zip in memory
     zip_buffer = io.BytesIO()
