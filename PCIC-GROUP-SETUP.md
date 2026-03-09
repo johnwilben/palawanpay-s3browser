@@ -6,7 +6,7 @@
 
 **Access Level:** Full access (Read + Write + Delete)
 
-**Buckets:** All buckets matching pattern `s3-sftpserver-*`
+**Buckets:** `s3-sftpserver`
 
 **Permissions:**
 - ✅ View files and folders
@@ -26,7 +26,7 @@
 2. Click **Groups** in the left menu
 3. Click **Create group**
 4. Enter group name: `AWS-s3browser-PCIC`
-5. Description: `Full access to SFTP server buckets (s3-sftpserver-*)`
+5. Description: `Full access to SFTP server bucket (s3-sftpserver)`
 6. Click **Create group**
 
 ### 2. Add Users to Group
@@ -52,15 +52,14 @@
 ### Test Access
 
 1. Login as a PCIC user
-2. Should see only `s3-sftpserver-*` buckets
+2. Should see only `s3-sftpserver` bucket
 3. Can view, download, upload, and delete files
 4. Upload button should appear (full access)
 
 ### Expected Behavior
 
 **Visible Buckets:**
-- Any bucket starting with `s3-sftpserver-`
-- Example: `s3-sftpserver-prod`, `s3-sftpserver-uat`, etc.
+- `s3-sftpserver` bucket only
 
 **Available Actions:**
 - Browse folders
@@ -72,7 +71,7 @@
 - Copy/Move files
 
 **Restricted Actions:**
-- None (full access to s3-sftpserver-* buckets)
+- None (full access to s3-sftpserver bucket)
 
 ---
 
@@ -81,15 +80,15 @@
 ### User can't see any buckets
 - Check if user is added to `AWS-s3browser-PCIC` group
 - Check if group is assigned to S3 Browser application
-- Check if bucket name matches `s3-sftpserver-*` pattern
+- Check if bucket name is exactly `s3-sftpserver`
 
 ### User sees upload button (should be read-only)
 - Not applicable - PCIC has full access (read + write + delete)
 
 ### Bucket name doesn't match pattern
-If the actual bucket name is different (e.g., `pcic-sftp-bucket`):
+If the actual bucket name is different:
 1. Update Lambda code in `backend/lambda/s3-operations.py`
-2. Change pattern from `s3-sftpserver-*` to actual pattern
+2. Change pattern from `s3-sftpserver` to actual bucket name
 3. Redeploy Lambda
 
 ---
@@ -108,7 +107,7 @@ If the actual bucket name is different (e.g., `pcic-sftp-bucket`):
 2. ⏳ Add PCIC users to the group
 3. ⏳ Assign group to S3 Browser application
 4. ⏳ Test with PCIC user account
-5. ⏳ Verify bucket name pattern matches `s3-sftpserver-*`
+5. ⏳ Verify bucket name is exactly `s3-sftpserver`
 
 ---
 

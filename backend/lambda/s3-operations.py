@@ -172,7 +172,7 @@ GROUP_BUCKET_ACCESS = {
     'AWS-s3browser-PCIC': {
         'buckets': [
             {
-                'pattern': 's3-sftpserver-*',
+                'pattern': 's3-sftpserver',
                 'permission': 'write'  # Read + Write + Delete
             }
         ]
