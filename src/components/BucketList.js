@@ -73,7 +73,12 @@ function BucketList() {
   return (
     <div>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
-        <h2>Your S3 Buckets</h2>
+        <div>
+          <h2>Your S3 Buckets</h2>
+          <p style={{fontSize: '14px', color: '#8e8e93', marginTop: '0.25rem'}}>
+            {filteredBuckets.length} {filteredBuckets.length === 1 ? 'bucket' : 'buckets'} available
+          </p>
+        </div>
         <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
           <button
             onClick={() => setShowSearch(!showSearch)}

@@ -198,6 +198,32 @@ function BucketView() {
     setDestinationModalOpen(true);
   };
 
+  const handleDownloadFolder = async (folderName) => {
+    try {
+      const session = await fetchAuthSession();
+      const folderPrefix = currentPrefix + folderName;
+      
+      const response = await post({
+        apiName: 'S3BrowserAPI',
+        path: `/buckets/${bucketName}/download-zip`,
+        options: {
+          headers: {
+            Authorization: `Bearer ${session.tokens.idToken}`
+          },
+          body: {
+            prefix: folderPrefix
+          }
+        }
+      }).response;
+      
+      const data = await response.body.json();
+      window.open(data.downloadUrl, '_blank');
+      showToast(`Downloading folder "${folderName}" as ZIP`);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleMove = () => {
     setCopyMoveAction('move');
     setDestinationModalOpen(true);
@@ -595,12 +621,25 @@ function BucketView() {
       {viewMode === 'list' ? (
         <ul className="file-list">
           {filteredFolders.map(folder => (
-            <li key={folder.name} className="file-item" onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
-              <div>
-                <div className="file-name">📁 {folder.name}</div>
-                <div className="file-size" style={{color: '#8e8e93'}}>Folder</div>
+            <li key={folder.name} className="file-item" style={{cursor: 'pointer'}}>
+              <div onClick={() => navigateToFolder(folder.name)} style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                <div>
+                  <div className="file-name">📁 {folder.name}</div>
+                  <div className="file-size" style={{color: '#8e8e93'}}>Folder</div>
+                </div>
+                <span style={{color: '#007aff', fontSize: '20px'}}>›</span>
               </div>
-              <span style={{color: '#007aff', fontSize: '20px'}}>›</span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownloadFolder(folder.name);
+                }}
+                className="btn-download"
+                title="Download folder as ZIP"
+                style={{marginLeft: '0.5rem'}}
+              >
+                ↓
+              </button>
             </li>
           ))}
           {filteredFiles.map(file => (
@@ -666,17 +705,16 @@ function BucketView() {
           {filteredFolders.map(folder => (
             <div
               key={folder.name}
-              onClick={() => navigateToFolder(folder.name)}
               className="grid-card"
               style={{
                 padding: '1rem',
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 border: '1px solid #e5e5ea',
-                cursor: 'pointer',
                 textAlign: 'center',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                position: 'relative'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.classList.add('grid-card-hover');
@@ -685,10 +723,37 @@ function BucketView() {
                 e.currentTarget.classList.remove('grid-card-hover');
               }}
             >
-              <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📁</div>
-              <div className="grid-card-text">
-                {folder.name}
+              <div onClick={() => navigateToFolder(folder.name)} style={{cursor: 'pointer'}}>
+                <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📁</div>
+                <div className="grid-card-text">
+                  {folder.name}
+                </div>
               </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownloadFolder(folder.name);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '0.5rem',
+                  right: '0.5rem',
+                  background: '#007aff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Download folder as ZIP"
+              >
+                ↓
+              </button>
             </div>
           ))}
           {filteredFiles.map(file => (

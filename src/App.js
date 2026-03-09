@@ -74,32 +74,32 @@ function AppContent({ signOut, user }) {
           <div className="header-content">
             <img src="/PalawanPay logo - Yellow - horizontal stack.png" alt="PalawanPay" style={{height: '40px'}} />
             <h1 style={{marginLeft: '1rem'}}>S3 Browser</h1>
+            <button 
+              onClick={toggleDarkMode}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '20px',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s ease',
+                backdropFilter: 'blur(10px)',
+                marginLeft: '1rem'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
+              onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
             <div className="user-info">
-              <button 
-                onClick={toggleDarkMode}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.5rem',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  width: '40px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'background 0.2s ease',
-                  backdropFilter: 'blur(10px)',
-                  filter: isDarkMode ? 'none' : 'grayscale(0)'
-                }}
-                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
-                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
-                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {isDarkMode ? '☀️' : '🌙'}
-              </button>
               <span>Happy Palawan Day, {user?.attributes?.name || user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
               <button onClick={signOut} className="btn-signout">Sign Out</button>
             </div>
