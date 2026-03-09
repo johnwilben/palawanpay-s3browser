@@ -90,7 +90,7 @@ AWS-s3-browser-test-confluent
 ```
 
 **AWS-s3-browser-test-confluent:**
-- Full access (read + write + delete) to all buckets matching `test-*`
+- Read-only access to bucket `test-bucket-confluent-ppay` in account `730335474290`
 
 ---
 
