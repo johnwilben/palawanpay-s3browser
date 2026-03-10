@@ -1,6 +1,7 @@
 import json
 import boto3
 import logging
+import re
 from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -16,6 +17,36 @@ sso_admin = boto3.client('sso-admin')
 
 # Audit log bucket
 AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
+
+# Input validation patterns
+BUCKET_NAME_PATTERN = re.compile(r'^[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]$')
+OBJECT_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9!_.*\'()\-\/]+$')
+MAX_KEY_LENGTH = 1024
+MAX_KEYS_PER_REQUEST = 1000
+
+def validate_bucket_name(bucket):
+    """Validate S3 bucket name"""
+    if not bucket or len(bucket) < 3 or len(bucket) > 63:
+        return False
+    if '..' in bucket or '.-' in bucket or '-.' in bucket:
+        return False
+    return bool(BUCKET_NAME_PATTERN.match(bucket))
+
+def validate_object_key(key):
+    """Validate S3 object key"""
+    if not key or len(key) > MAX_KEY_LENGTH:
+        return False
+    # Prevent path traversal
+    if '..' in key or key.startswith('/'):
+        return False
+    return bool(OBJECT_KEY_PATTERN.match(key))
+
+def sanitize_error(error_msg):
+    """Sanitize error messages to prevent info leakage"""
+    # Remove sensitive patterns
+    sanitized = re.sub(r'arn:aws:[^:]+:[^:]+:\d+:[^\s]+', '[REDACTED]', str(error_msg))
+    sanitized = re.sub(r'\d{12}', '[ACCOUNT]', sanitized)
+    return sanitized
 
 def log_audit(event_type, user_email, bucket, key='', details=None):
     """Log audit events to S3 - consolidated per hour"""
@@ -402,35 +433,54 @@ def lambda_handler(event, context):
             return list_buckets(event)
         elif path.startswith('/buckets/') and path.endswith('/objects') and method == 'GET':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return list_objects(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/upload') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return generate_upload_url(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/activities') and method == 'GET':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return get_recent_activities(bucket, event)
         elif path.startswith('/buckets/') and '/objects' in path and method == 'PUT':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return create_folder(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/delete') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return delete_object(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/copy') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return copy_object(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/move') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return move_object(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/download-zip') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return generate_zip_download(bucket, event)
         elif path.startswith('/buckets/') and '/download' in path and method == 'GET':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return generate_download_url(bucket, event)
         else:
             return response(404, {'error': 'Not found'})
     except Exception as e:
-        return response(500, {'error': str(e)})
+        logger.error(f"Unhandled error: {str(e)}")
+        return response(500, {'error': sanitize_error(str(e))})
 
 def list_buckets(event):
     request_id = event.get('requestContext', {}).get('requestId', 'unknown')
@@ -567,6 +617,10 @@ def generate_upload_url(bucket, event):
     file_type = body.get('fileType', 'application/octet-stream')
     file_content = body.get('fileContent')
     
+    # Validate object key
+    if not validate_object_key(file_name):
+        return response(400, {'error': 'Invalid file name or path'})
+    
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
     if prefix and not file_name.startswith(prefix):
@@ -600,6 +654,10 @@ def create_folder(bucket, event):
     
     if not key or not key.endswith('/'):
         return response(400, {'error': 'Invalid folder key'})
+    
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid folder name or path'})
     
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
@@ -640,6 +698,10 @@ def delete_object(bucket, event):
     if not key:
         return response(400, {'error': 'Key is required'})
     
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid object key'})
+    
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
     if prefix and not key.startswith(prefix):
@@ -663,6 +725,12 @@ def copy_object(source_bucket, event):
     if not source_key or not dest_bucket:
         return response(400, {'error': 'sourceKey and destBucket are required'})
     
+    # Validate bucket and keys
+    if not validate_bucket_name(dest_bucket):
+        return response(400, {'error': 'Invalid destination bucket name'})
+    if not validate_object_key(source_key):
+        return response(400, {'error': 'Invalid source key'})
+    
     # Check source permissions
     source_permission = get_user_permissions_for_bucket(source_bucket, user_groups)
     if not source_permission:
@@ -680,6 +748,10 @@ def copy_object(source_bucket, event):
     # Copy object
     file_name = source_key.split('/')[-1]
     dest_key = dest_prefix + file_name
+    
+    # Validate destination key
+    if not validate_object_key(dest_key):
+        return response(400, {'error': 'Invalid destination key'})
     
     copy_source = {'Bucket': source_bucket, 'Key': source_key}
     dest_client.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
@@ -699,6 +771,12 @@ def move_object(source_bucket, event):
     
     if not source_key or not dest_bucket:
         return response(400, {'error': 'sourceKey and destBucket are required'})
+    
+    # Validate bucket and keys
+    if not validate_bucket_name(dest_bucket):
+        return response(400, {'error': 'Invalid destination bucket name'})
+    if not validate_object_key(source_key):
+        return response(400, {'error': 'Invalid source key'})
     
     # Check source permissions (need write to delete)
     source_permission = get_user_permissions_for_bucket(source_bucket, user_groups)
@@ -742,6 +820,10 @@ def generate_download_url(bucket, event):
     
     key = event.get('queryStringParameters', {}).get('key')
     
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid object key'})
+    
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
     if prefix and not key.startswith(prefix):
@@ -783,6 +865,10 @@ def generate_zip_download(bucket, event):
     keys = body.get('keys', [])
     prefix = body.get('prefix', '')
     
+    # Validate prefix if provided
+    if prefix and not validate_object_key(prefix):
+        return response(400, {'error': 'Invalid prefix'})
+    
     # If prefix is provided, list all files in that folder
     if prefix and not keys:
         try:
@@ -795,6 +881,15 @@ def generate_zip_download(bucket, event):
     
     if not keys:
         return response(400, {'error': 'No files specified'})
+    
+    # Limit number of keys
+    if len(keys) > MAX_KEYS_PER_REQUEST:
+        return response(400, {'error': f'Too many files. Maximum {MAX_KEYS_PER_REQUEST} files per request'})
+    
+    # Validate all keys
+    for key in keys:
+        if not validate_object_key(key):
+            return response(400, {'error': f'Invalid object key: {key}'})
     
     # Check prefix restriction
     user_prefix = user_permission.get('prefix', '')
