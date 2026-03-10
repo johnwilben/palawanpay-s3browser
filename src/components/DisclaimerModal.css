@@ -1,0 +1,155 @@
+.disclaimer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.disclaimer-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.disclaimer-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.disclaimer-modal h2 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 20px 0;
+  letter-spacing: -0.5px;
+}
+
+.disclaimer-message {
+  font-size: 17px;
+  line-height: 1.6;
+  color: #1d1d1f;
+  margin: 0 0 16px 0;
+  font-weight: 500;
+}
+
+.disclaimer-submessage {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #86868b;
+  margin: 0 0 32px 0;
+}
+
+.disclaimer-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.disclaimer-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #007aff;
+}
+
+.disclaimer-checkbox span {
+  font-size: 15px;
+  color: #1d1d1f;
+}
+
+.disclaimer-confirm-btn {
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 40px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 200px;
+}
+
+.disclaimer-confirm-btn:hover {
+  background: #0051d5;
+  transform: scale(1.02);
+}
+
+.disclaimer-confirm-btn:active {
+  transform: scale(0.98);
+}
+
+/* Dark mode */
+body.dark-mode .disclaimer-modal {
+  background: #1c1c1e;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .disclaimer-modal h2 {
+  color: #f5f5f7;
+}
+
+body.dark-mode .disclaimer-message {
+  color: #f5f5f7;
+}
+
+body.dark-mode .disclaimer-submessage {
+  color: #98989d;
+}
+
+body.dark-mode .disclaimer-checkbox span {
+  color: #f5f5f7;
+}
+
+body.dark-mode .disclaimer-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}

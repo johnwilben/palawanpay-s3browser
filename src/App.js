@@ -8,6 +8,7 @@ import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
+import DisclaimerModal from './components/DisclaimerModal';
 import { DarkModeProvider, useDarkMode } from './DarkModeContext';
 
 const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
@@ -114,6 +115,7 @@ function AppContent({ signOut, user }) {
           </Routes>
         </main>
         <HelpButton />
+        <DisclaimerModal />
       </div>
     </BrowserRouter>
   );
