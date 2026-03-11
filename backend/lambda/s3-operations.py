@@ -1,12 +1,94 @@
 import json
 import boto3
+import logging
+import re
 from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
 sts = boto3.client('sts')
 identitystore = boto3.client('identitystore')
 sso_admin = boto3.client('sso-admin')
+
+# Audit log bucket
+AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
+
+# Input validation patterns
+BUCKET_NAME_PATTERN = re.compile(r'^[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]$')
+OBJECT_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9!_.*\'()\-\/]+$')
+MAX_KEY_LENGTH = 1024
+MAX_KEYS_PER_REQUEST = 1000
+
+def validate_bucket_name(bucket):
+    """Validate S3 bucket name"""
+    if not bucket or len(bucket) < 3 or len(bucket) > 63:
+        return False
+    if '..' in bucket or '.-' in bucket or '-.' in bucket:
+        return False
+    return bool(BUCKET_NAME_PATTERN.match(bucket))
+
+def validate_object_key(key):
+    """Validate S3 object key"""
+    if not key or len(key) > MAX_KEY_LENGTH:
+        return False
+    # Prevent path traversal
+    if '..' in key or key.startswith('/'):
+        return False
+    return bool(OBJECT_KEY_PATTERN.match(key))
+
+def sanitize_error(error_msg):
+    """Sanitize error messages to prevent info leakage"""
+    # Remove sensitive patterns
+    sanitized = re.sub(r'arn:aws:[^:]+:[^:]+:\d+:[^\s]+', '[REDACTED]', str(error_msg))
+    sanitized = re.sub(r'\d{12}', '[ACCOUNT]', sanitized)
+    return sanitized
+
+def log_audit(event_type, user_email, bucket, key='', details=None):
+    """Log audit events to S3 - consolidated per hour"""
+    try:
+        # Use Philippine Time (UTC+8)
+        from datetime import timedelta
+        timestamp = datetime.utcnow() + timedelta(hours=8)
+        date_prefix = timestamp.strftime('%Y/%m/%d')
+        hour = timestamp.strftime('%H')
+        
+        log_entry = {
+            'timestamp': timestamp.isoformat(),
+            'event_type': event_type,
+            'user_email': user_email,
+            'bucket': bucket,
+            'key': key,
+            'details': details or {}
+        }
+        
+        # Consolidate logs per hour
+        log_key = f'{date_prefix}/{hour}00-audit.jsonl'
+        
+        # Append to existing file (JSONL format - one JSON per line)
+        log_line = json.dumps(log_entry) + '\n'
+        
+        # Get existing content if file exists
+        try:
+            existing = s3.get_object(Bucket=AUDIT_BUCKET, Key=log_key)
+            existing_content = existing['Body'].read()
+            new_content = existing_content + log_line.encode('utf-8')
+        except s3.exceptions.NoSuchKey:
+            new_content = log_line.encode('utf-8')
+        
+        # Write back
+        s3.put_object(
+            Bucket=AUDIT_BUCKET,
+            Key=log_key,
+            Body=new_content,
+            ContentType='application/x-ndjson'
+        )
+    except Exception as e:
+        logger.error(f'Failed to log audit: {str(e)}')
 
 # IAM Identity Center configuration
 IDENTITY_STORE_ID = 'd-96677c10e5'
@@ -14,78 +96,128 @@ IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-96677c10e5'
 
 # Cross-account configuration
 CROSS_ACCOUNT_ROLES = [
-    {'account': 'PRIMARY_ACCOUNT_ID', 'role': None},
-    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
-    {'account': '684538810129', 'role': 'arn:aws:iam::684538810129:role/S3BrowserCrossAccountRole'}
+    {'account': '721010870103', 'role': None},  # Primary account
+    {'account': '236300332446', 'role': 'arn:aws:iam::236300332446:role/S3BrowserCrossAccountRole'},
+    {'account': '502174880086', 'role': 'arn:aws:iam::502174880086:role/S3BrowserCrossAccountRole'},
+    {'account': '471112740803', 'role': 'arn:aws:iam::471112740803:role/S3BrowserCrossAccountRole'},
+    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'}
 ]
 
 # Group-based bucket access with permissions
+# Permission levels:
+#   'read' = Read-only (view/download only, no upload/delete)
+#   'write' = Full access (read + write + delete)
 GROUP_BUCKET_ACCESS = {
-    's3-browser-admin': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+    'AWS-s3-browser-admin': {
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
     'AWS Super Administrators': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
     'AWS Administrators': {
-        'buckets': [{'pattern': '*', 'permission': 'write'}]
+        'buckets': [{'pattern': '*', 'permission': 'write'}]  # Full access to all buckets
     },
-    's3-browser-datalake': {
+    
+    # Datalake - Read-only group
+    'AWS-s3-browser-datalake-read': {
         'buckets': [
-            {'pattern': 'datalake-*', 'permission': 'write'}
+            {'pattern': 'datalake-*', 'permission': 'read'}  # Read-only to all datalake-* buckets
         ]
     },
-    's3-browser-finance': {
+    # Datalake - Write group
+    'AWS-s3-browser-datalake-write': {
+        'buckets': [
+            {'pattern': 'datalake-*', 'permission': 'write'}  # Read + Write + Delete to all datalake-* buckets
+        ]
+    },
+    
+    # Finance - Mixed permissions
+    'AWS-s3-browser-finance': {
         'buckets': [
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-output-common',
-                'permission': 'read'
+                'permission': 'read'  # Read-only
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-athena',
-                'permission': 'write',
-                'prefix': ''  # Full bucket access
+                'permission': 'write',  # Read + Write + Delete
+                'prefix': ''
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-sandbox',
-                'permission': 'write',
+                'permission': 'write',  # Read + Write + Delete
                 'prefix': ''
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-staging-common',
-                'permission': 'write',
+                'permission': 'write',  # Read + Write + Delete
                 'prefix': ''
             }
         ]
     },
-    's3-browser-finance-GL': {
+    
+    # Finance GL - Read-only to specific folder
+    'AWS-s3-browser-finance-GL': {
         'buckets': [
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-raw-megalink',
-                'permission': 'read',
-                'prefix': 'megalink-wkf01/transaction-gl/'  # Folder-level access
+                'permission': 'read',  # Read-only
+                'prefix': 'megalink-wkf01/transaction-gl/'  # Only this folder
             }
         ]
     },
-    's3-browser-archive-treasury': {
+    
+    # Archive Treasury - Write access
+    'AWS-s3-browser-archive-treasury': {
         'buckets': [
             {
                 'pattern': 'operations-bucket-backup-sharepoint',
-                'permission': 'write'
+                'permission': 'write'  # Read + Write + Delete
             }
         ]
     },
-    's3-browser-visa': {
+    
+    # Visa - Read-only access
+    'AWS-s3-browser-visa': {
         'buckets': [
             {
-                'pattern': 'finance-palawanpay-sharepoint-backup',
-                'permission': 'write'
+                'pattern': 'visa-report-paymentology',
+                'permission': 'read'  # Read-only
             }
         ]
     },
-    's3-browser-pgc': {
+    
+    # PGC - Read-only group
+    'AWS-s3-browser-pgc-read': {
         'buckets': [
-            {'pattern': 'pgcdatalake-*', 'permission': 'write'}
+            {'pattern': 'pgcdatalake-*', 'permission': 'read'}  # Read-only to all pgcdatalake-* buckets
+        ]
+    },
+    # PGC - Write group
+    'AWS-s3-browser-pgc-write': {
+        'buckets': [
+            {'pattern': 'pgcdatalake-*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-* buckets
+        ]
+    },
+    
+    # PCIC - Full access to SFTP server bucket
+    'AWS-s3browser-PCIC': {
+        'buckets': [
+            {
+                'pattern': 's3-sftpserver',
+                'permission': 'write'  # Read + Write + Delete
+            }
+        ]
+    },
+    
+    # Test Confluent - Read-only access to specific test bucket
+    'AWS-s3-browser-test-confluent': {
+        'buckets': [
+            {
+                'pattern': 'test-bucket-confluent-ppay',
+                'permission': 'read',  # Read-only
+                'account': '730335474290'
+            }
         ]
     }
 }
@@ -112,39 +244,53 @@ def get_user_email(event):
         if email.startswith('IAMIdentityCenter_'):
             email = email.replace('IAMIdentityCenter_', '')
         
-        print(f"Extracted email: {email}")
-        print(f"Event structure: {json.dumps(event.get('requestContext', {}))}")
+        logger.info(f"Extracted email: {email}")
+        logger.info(f"Event structure: {json.dumps(event.get('requestContext', {}))}")
         return email
     except Exception as e:
-        print(f"Error extracting email: {str(e)}")
-        print(f"Full event: {json.dumps(event)}")
+        logger.info(f"Error extracting email: {str(e)}")
+        logger.info(f"Full event: {json.dumps(event)}")
         return None
 
 def get_user_groups_from_token(event):
-    """Get user's Cognito groups from JWT token"""
+    """Get user's groups from JWT token (mapped from IAM Identity Center memberOf)"""
     try:
         authorizer = event.get('requestContext', {}).get('authorizer', {})
         claims = authorizer.get('jwt', {}).get('claims', {})
         
-        # Get cognito:groups from token
-        groups_str = claims.get('cognito:groups', '[]')
+        # Get groups from given_name (where we mapped memberOf from SAML)
+        groups_str = claims.get('given_name', '')
         
-        # Parse the groups string (it's a string representation of a list)
-        if isinstance(groups_str, str):
-            # Remove brackets and split by space
+        logger.info(f"Raw groups from token: {groups_str}")
+        
+        # Parse the group IDs - IAM Identity Center sends comma-separated group IDs
+        if isinstance(groups_str, str) and groups_str:
+            # Remove brackets and split by comma
             groups_str = groups_str.strip('[]')
-            groups = [g.strip() for g in groups_str.split() if g.strip()]
+            group_ids = [g.strip() for g in groups_str.split(',') if g.strip()]
         else:
-            groups = groups_str if isinstance(groups_str, list) else []
+            group_ids = []
         
-        # Filter out the IAM Identity Center federation group
-        groups = [g for g in groups if not g.startswith('ap-southeast-1_')]
+        # Resolve group IDs to group names
+        group_names = []
+        for group_id in group_ids:
+            try:
+                response = identitystore.describe_group(
+                    IdentityStoreId=IDENTITY_STORE_ID,
+                    GroupId=group_id
+                )
+                group_name = response.get('DisplayName', '')
+                if group_name:
+                    group_names.append(group_name)
+                    logger.info(f"Resolved group ID {group_id} to name: {group_name}")
+            except Exception as e:
+                logger.warning(f"Failed to resolve group ID {group_id}: {str(e)}")
         
-        print(f"User Cognito groups: {groups}")
-        return groups
+        logger.info(f"User groups: {group_names}")
+        return group_names
         
     except Exception as e:
-        print(f"Error getting user groups from token: {str(e)}")
+        logger.info(f"Error getting user groups from token: {str(e)}")
         return []
 
 def get_user_permissions_for_bucket(bucket_name, user_groups, prefix=''):
@@ -229,7 +375,7 @@ def process_account(account_config, user_groups):
         s3_client = get_s3_client(role_arn)
         buckets_response = s3_client.list_buckets()
         
-        print(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
+        logger.info(f"Account {account_id}: Found {len(buckets_response.get('Buckets', []))} buckets")
         
         for bucket in buckets_response.get('Buckets', []):
             bucket_name = bucket['Name']
@@ -258,20 +404,28 @@ def process_account(account_config, user_groups):
                 
                 buckets.append(bucket_info)
     except Exception as e:
-        print(f"Error accessing account {account_id}: {str(e)}")
+        logger.info(f"Error accessing account {account_id}: {str(e)}")
     
-    print(f"Account {account_id}: Returning {len(buckets)} accessible buckets")
+    logger.info(f"Account {account_id}: Returning {len(buckets)} accessible buckets")
     return buckets
 
 def lambda_handler(event, context):
+    # Log incoming request
+    request_id = context.aws_request_id
+    logger.info(f"[{request_id}] === NEW REQUEST ===")
+    logger.info(f"[{request_id}] Timestamp: {datetime.utcnow().isoformat()}")
+    
     path = event.get('rawPath') or event.get('path', '')
     method = event.get('requestContext', {}).get('http', {}).get('method') or event.get('httpMethod', '')
+    
+    logger.info(f"[{request_id}] Method: {method}, Path: {path}")
     
     # Remove stage from path if present
     if path.startswith('/prod'):
         path = path[5:]
     
     if method == 'OPTIONS':
+        logger.info(f"[{request_id}] OPTIONS request - returning CORS headers")
         return response(200, {})
     
     try:
@@ -279,33 +433,78 @@ def lambda_handler(event, context):
             return list_buckets(event)
         elif path.startswith('/buckets/') and path.endswith('/objects') and method == 'GET':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return list_objects(bucket, event)
         elif path.startswith('/buckets/') and path.endswith('/upload') and method == 'POST':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return generate_upload_url(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/activities') and method == 'GET':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return get_recent_activities(bucket, event)
+        elif path.startswith('/buckets/') and '/objects' in path and method == 'PUT':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return create_folder(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/delete') and method == 'POST':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return delete_object(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/copy') and method == 'POST':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return copy_object(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/move') and method == 'POST':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return move_object(bucket, event)
+        elif path.startswith('/buckets/') and path.endswith('/download-zip') and method == 'POST':
+            bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
+            return generate_zip_download(bucket, event)
         elif path.startswith('/buckets/') and '/download' in path and method == 'GET':
             bucket = path.split('/')[2]
+            if not validate_bucket_name(bucket):
+                return response(400, {'error': 'Invalid bucket name'})
             return generate_download_url(bucket, event)
         else:
             return response(404, {'error': 'Not found'})
     except Exception as e:
-        return response(500, {'error': str(e)})
+        logger.error(f"Unhandled error: {str(e)}")
+        return response(500, {'error': sanitize_error(str(e))})
 
 def list_buckets(event):
+    request_id = event.get('requestContext', {}).get('requestId', 'unknown')
+    
     # Get user email
     user_email = get_user_email(event)
+    logger.info(f"[{request_id}] User email: {user_email}")
+    
     if not user_email:
+        logger.warning(f"[{request_id}] Unable to identify user - access denied")
         return response(403, {'error': 'Unable to identify user'})
     
     # Get user's groups from Cognito token
     user_groups = get_user_groups_from_token(event)
+    logger.info(f"[{request_id}] User groups: {user_groups}")
     
     # Temporary: If no groups, grant admin access until groups are set up
     if not user_groups:
-        print(f"User {user_email} has no groups, granting temporary admin access")
+        logger.warning(f"[{request_id}] User {user_email} has no groups, granting temporary admin access")
         user_groups = ['s3-browser-admin']
     
     all_buckets = []
+    
+    logger.info(f"[{request_id}] Processing {len(CROSS_ACCOUNT_ROLES)} accounts")
     
     # Process all accounts in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -315,8 +514,9 @@ def list_buckets(event):
             try:
                 buckets = future.result()
                 all_buckets.extend(buckets)
+                logger.info(f"[{request_id}] Retrieved {len(buckets)} buckets from account")
             except Exception as e:
-                print(f"Error processing account: {str(e)}")
+                logger.info(f"Error processing account: {str(e)}")
     
     return response(200, {'buckets': all_buckets})
 
@@ -335,28 +535,63 @@ def list_objects(bucket, event):
     if not permissions['canRead']:
         return response(403, {'error': 'No read access'})
     
-    # Apply prefix filter if user has restricted access
-    prefix = user_permission.get('prefix', '')
-    list_params = {'Bucket': bucket}
+    # Get prefix from query params (for folder navigation)
+    query_params = event.get('queryStringParameters') or {}
+    current_prefix = query_params.get('prefix', '')
+    
+    # Apply user's restricted prefix if any
+    user_prefix = user_permission.get('prefix', '')
+    if user_prefix:
+        # Combine user restriction with current navigation
+        prefix = user_prefix + current_prefix
+    else:
+        prefix = current_prefix
+    
+    list_params = {
+        'Bucket': bucket,
+        'Delimiter': '/'  # This groups objects into folders
+    }
     if prefix:
         list_params['Prefix'] = prefix
     
     objects_response = s3_client.list_objects_v2(**list_params)
-    objects = []
     
+    # Get folders (common prefixes)
+    folders = []
+    for prefix_obj in objects_response.get('CommonPrefixes', []):
+        folder_name = prefix_obj['Prefix']
+        if prefix:
+            folder_name = folder_name[len(prefix):]  # Remove current prefix
+        folders.append({
+            'name': folder_name.rstrip('/'),
+            'type': 'folder'
+        })
+    
+    # Get files
+    files = []
     for obj in objects_response.get('Contents', []):
-        objects.append({
-            'key': obj['Key'],
+        key = obj['Key']
+        # Skip the prefix itself if it's a folder marker
+        if key == prefix:
+            continue
+        # Remove current prefix from display
+        display_key = key[len(prefix):] if prefix else key
+        files.append({
+            'key': key,
+            'name': display_key,
             'size': obj['Size'],
-            'lastModified': obj['LastModified'].isoformat()
+            'lastModified': obj['LastModified'].isoformat(),
+            'type': 'file'
         })
     
     can_write = permissions['canWrite'] and user_permission['permission'] == 'write'
     
     return response(200, {
-        'objects': objects,
+        'folders': folders,
+        'files': files,
         'canWrite': can_write,
-        'prefix': prefix  # Tell frontend about prefix restriction
+        'currentPrefix': current_prefix,
+        'restrictedPrefix': user_prefix
     })
 
 def generate_upload_url(bucket, event):
@@ -382,6 +617,10 @@ def generate_upload_url(bucket, event):
     file_type = body.get('fileType', 'application/octet-stream')
     file_content = body.get('fileContent')
     
+    # Validate object key
+    if not validate_object_key(file_name):
+        return response(400, {'error': 'Invalid file name or path'})
+    
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
     if prefix and not file_name.startswith(prefix):
@@ -395,9 +634,174 @@ def generate_upload_url(bucket, event):
             Body=file_data,
             ContentType=file_type
         )
+        log_audit('UPLOAD', user_email, bucket, file_name, {'size': len(file_data), 'type': file_type})
         return response(200, {'success': True})
+
+def create_folder(bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
     
-    return response(400, {'error': 'No file content'})
+    # Check if user has write permission for this bucket
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission or user_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access denied to this bucket'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    
+    body = json.loads(event.get('body', '{}'))
+    key = body.get('key')
+    
+    if not key or not key.endswith('/'):
+        return response(400, {'error': 'Invalid folder key'})
+    
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid folder name or path'})
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not key.startswith(prefix):
+        return response(403, {'error': f'Can only create folders in {prefix}'})
+    
+    # Create folder by putting empty object with trailing slash
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=b''
+    )
+    
+    log_audit('CREATE_FOLDER', user_email, bucket, key)
+    return response(200, {'success': True, 'key': key})
+
+def delete_object(bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    if user_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access required to delete files'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
+    
+    if not permissions['canWrite']:
+        return response(403, {'error': 'No write access'})
+    
+    body = json.loads(event.get('body', '{}'))
+    key = body.get('key')
+    
+    if not key:
+        return response(400, {'error': 'Key is required'})
+    
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid object key'})
+    
+    # Check prefix restriction
+    prefix = user_permission.get('prefix', '')
+    if prefix and not key.startswith(prefix):
+        return response(403, {'error': f'Can only delete from {prefix}'})
+    
+    s3_client.delete_object(Bucket=bucket, Key=key)
+    log_audit('DELETE', user_email, bucket, key)
+    
+    return response(200, {'success': True})
+
+def copy_object(source_bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    body = json.loads(event.get('body', '{}'))
+    source_key = body.get('sourceKey')
+    dest_bucket = body.get('destBucket')
+    dest_prefix = body.get('destPrefix', '')
+    
+    if not source_key or not dest_bucket:
+        return response(400, {'error': 'sourceKey and destBucket are required'})
+    
+    # Validate bucket and keys
+    if not validate_bucket_name(dest_bucket):
+        return response(400, {'error': 'Invalid destination bucket name'})
+    if not validate_object_key(source_key):
+        return response(400, {'error': 'Invalid source key'})
+    
+    # Check source permissions
+    source_permission = get_user_permissions_for_bucket(source_bucket, user_groups)
+    if not source_permission:
+        return response(403, {'error': 'Access denied to source bucket'})
+    
+    # Check destination permissions
+    dest_permission = get_user_permissions_for_bucket(dest_bucket, user_groups)
+    if not dest_permission or dest_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access required to destination bucket'})
+    
+    # Get clients
+    source_client = get_client_for_bucket(source_bucket)
+    dest_client = get_client_for_bucket(dest_bucket)
+    
+    # Copy object
+    file_name = source_key.split('/')[-1]
+    dest_key = dest_prefix + file_name
+    
+    # Validate destination key
+    if not validate_object_key(dest_key):
+        return response(400, {'error': 'Invalid destination key'})
+    
+    copy_source = {'Bucket': source_bucket, 'Key': source_key}
+    dest_client.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
+    
+    log_audit('COPY', user_email, source_bucket, source_key, {'dest_bucket': dest_bucket, 'dest_key': dest_key})
+    return response(200, {'success': True})
+
+def move_object(source_bucket, event):
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    body = json.loads(event.get('body', '{}'))
+    source_key = body.get('sourceKey')
+    dest_bucket = body.get('destBucket')
+    dest_prefix = body.get('destPrefix', '')
+    
+    if not source_key or not dest_bucket:
+        return response(400, {'error': 'sourceKey and destBucket are required'})
+    
+    # Validate bucket and keys
+    if not validate_bucket_name(dest_bucket):
+        return response(400, {'error': 'Invalid destination bucket name'})
+    if not validate_object_key(source_key):
+        return response(400, {'error': 'Invalid source key'})
+    
+    # Check source permissions (need write to delete)
+    source_permission = get_user_permissions_for_bucket(source_bucket, user_groups)
+    if not source_permission or source_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access required to source bucket'})
+    
+    # Check destination permissions
+    dest_permission = get_user_permissions_for_bucket(dest_bucket, user_groups)
+    if not dest_permission or dest_permission['permission'] != 'write':
+        return response(403, {'error': 'Write access required to destination bucket'})
+    
+    # Get clients
+    source_client = get_client_for_bucket(source_bucket)
+    dest_client = get_client_for_bucket(dest_bucket)
+    
+    # Copy then delete
+    file_name = source_key.split('/')[-1]
+    dest_key = dest_prefix + file_name
+    
+    copy_source = {'Bucket': source_bucket, 'Key': source_key}
+    dest_client.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
+    source_client.delete_object(Bucket=source_bucket, Key=source_key)
+    
+    log_audit('MOVE', user_email, source_bucket, source_key, {'dest_bucket': dest_bucket, 'dest_key': dest_key})
+    return response(200, {'success': True})
 
 def generate_download_url(bucket, event):
     # Get user's groups
@@ -416,6 +820,10 @@ def generate_download_url(bucket, event):
     
     key = event.get('queryStringParameters', {}).get('key')
     
+    # Validate object key
+    if not validate_object_key(key):
+        return response(400, {'error': 'Invalid object key'})
+    
     # Check prefix restriction
     prefix = user_permission.get('prefix', '')
     if prefix and not key.startswith(prefix):
@@ -431,6 +839,116 @@ def generate_download_url(bucket, event):
         ExpiresIn=3600
     )
     
+    log_audit('DOWNLOAD', user_email, bucket, key)
+    return response(200, {'downloadUrl': presigned_url})
+
+def generate_zip_download(bucket, event):
+    import zipfile
+    import io
+    from datetime import datetime
+    
+    # Get user's groups
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    s3_client = get_client_for_bucket(bucket)
+    permissions = check_permissions(bucket, s3_client)
+    
+    if not permissions['canRead']:
+        return response(403, {'error': 'No read access'})
+    
+    body = json.loads(event.get('body', '{}'))
+    keys = body.get('keys', [])
+    prefix = body.get('prefix', '')
+    
+    # Validate prefix if provided
+    if prefix and not validate_object_key(prefix):
+        return response(400, {'error': 'Invalid prefix'})
+    
+    # If prefix is provided, list all files in that folder
+    if prefix and not keys:
+        try:
+            list_response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            if 'Contents' in list_response:
+                keys = [obj['Key'] for obj in list_response['Contents'] if not obj['Key'].endswith('/')]
+        except Exception as e:
+            logger.error(f'Failed to list objects for prefix {prefix}: {str(e)}')
+            return response(500, {'error': 'Failed to list folder contents'})
+    
+    if not keys:
+        return response(400, {'error': 'No files specified'})
+    
+    # Limit number of keys
+    if len(keys) > MAX_KEYS_PER_REQUEST:
+        return response(400, {'error': f'Too many files. Maximum {MAX_KEYS_PER_REQUEST} files per request'})
+    
+    # Validate all keys
+    for key in keys:
+        if not validate_object_key(key):
+            return response(400, {'error': f'Invalid object key: {key}'})
+    
+    # Check prefix restriction
+    user_prefix = user_permission.get('prefix', '')
+    for key in keys:
+        if user_prefix and not key.startswith(user_prefix):
+            return response(403, {'error': f'Can only access files in {user_prefix}'})
+    
+    # Create zip in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for key in keys:
+            try:
+                obj = s3_client.get_object(Bucket=bucket, Key=key)
+                file_content = obj['Body'].read()
+                
+                # Preserve folder structure
+                # If downloading by prefix, remove the prefix from the path
+                if prefix:
+                    # Remove the prefix to create relative paths in ZIP
+                    zip_path = key[len(prefix):] if key.startswith(prefix) else key
+                else:
+                    # For individual files, use full path
+                    zip_path = key
+                
+                zip_file.writestr(zip_path, file_content)
+            except Exception as e:
+                logger.error(f"Error adding {key} to zip: {str(e)}")
+    
+    # Upload zip to temp bucket (not user bucket)
+    zip_buffer.seek(0)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    temp_bucket = 'palawanpay-s3browser-temp'
+    zip_key = f'{user_email}/{timestamp}.zip'
+    
+    # Use default S3 client for temp bucket
+    # Set expiration to 1 hour from now
+    from datetime import timedelta
+    expiration_time = datetime.now() + timedelta(hours=1)
+    
+    s3.put_object(
+        Bucket=temp_bucket,
+        Key=zip_key,
+        Body=zip_buffer.getvalue(),
+        ContentType='application/zip',
+        Expires=expiration_time
+    )
+    
+    # Generate presigned URL for the zip
+    presigned_url = s3.generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': temp_bucket,
+            'Key': zip_key,
+            'ResponseContentDisposition': f'attachment; filename="download_{timestamp}.zip"'
+        },
+        ExpiresIn=3600
+    )
+    
+    log_audit('DOWNLOAD_ZIP', user_email, bucket, '', {'file_count': len(keys), 'zip_key': zip_key})
     return response(200, {'downloadUrl': presigned_url})
 
 def check_permissions(bucket, s3_client=None):
@@ -455,7 +973,56 @@ def check_permissions(bucket, s3_client=None):
         can_write = False
     
     return {'canRead': can_read, 'canWrite': can_write}
-    return {'canRead': can_read, 'canWrite': can_write}
+
+def get_recent_activities(bucket, event):
+    """Get recent activities for a bucket from audit logs"""
+    user_email = get_user_email(event)
+    user_groups = get_user_groups_from_token(event)
+    
+    # Check if user has access to this bucket
+    user_permission = get_user_permissions_for_bucket(bucket, user_groups)
+    if not user_permission:
+        return response(403, {'error': 'Access denied to this bucket'})
+    
+    try:
+        # Get today's and yesterday's logs
+        from datetime import timedelta
+        activities = []
+        
+        for days_ago in range(2):  # Today and yesterday
+            date = datetime.utcnow() - timedelta(days=days_ago)
+            date_prefix = date.strftime('%Y/%m/%d')
+            
+            # List all hour files for this date
+            try:
+                result = s3.list_objects_v2(
+                    Bucket=AUDIT_BUCKET,
+                    Prefix=date_prefix + '/'
+                )
+                
+                for obj in result.get('Contents', []):
+                    # Download and parse each hour file
+                    log_obj = s3.get_object(Bucket=AUDIT_BUCKET, Key=obj['Key'])
+                    log_content = log_obj['Body'].read().decode('utf-8')
+                    
+                    # Parse JSONL (one JSON per line)
+                    for line in log_content.strip().split('\n'):
+                        if line:
+                            entry = json.loads(line)
+                            # Filter by bucket
+                            if entry.get('bucket') == bucket:
+                                activities.append(entry)
+            except:
+                pass  # No logs for this date
+        
+        # Sort by timestamp (newest first) and limit to 20
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        activities = activities[:20]
+        
+        return response(200, {'activities': activities})
+    except Exception as e:
+        logger.error(f'Failed to get activities: {str(e)}')
+        return response(500, {'error': 'Failed to load activities'})
 
 def response(status_code, body):
     return {

@@ -85,13 +85,6 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - sts:AssumeRole
-                Resource:
-                  - !If [HasCrossAccount1, !Ref CrossAccountRoleArn1, !Ref AWS::NoValue]
-                  - !If [HasCrossAccount2, !Ref CrossAccountRoleArn2, !Ref AWS::NoValue]
-                  - !If [HasCrossAccount3, !Ref CrossAccountRoleArn3, !Ref AWS::NoValue]
-              - Effect: Allow
-                Action:
                   - identitystore:ListUsers
                   - identitystore:DescribeUser
                   - identitystore:ListGroupMemberships
@@ -134,13 +127,20 @@ Resources:
       ProtocolType: HTTP
       CorsConfiguration:
         AllowOrigins:
-          - '*'
+          - 'https://feature-cross-account-access.d32el4qcx14shm.amplifyapp.com'
+          - 'http://localhost:3000'
         AllowMethods:
           - GET
           - POST
+          - PUT
+          - DELETE
           - OPTIONS
         AllowHeaders:
-          - '*'
+          - 'Content-Type'
+          - 'Authorization'
+          - 'X-Amz-Date'
+          - 'X-Api-Key'
+          - 'X-Amz-Security-Token'
         MaxAge: 300
 
   # JWT Authorizer
