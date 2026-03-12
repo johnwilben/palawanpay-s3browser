@@ -199,6 +199,12 @@ GROUP_BUCKET_ACCESS = {
             {'pattern': 'pgcdatalake-*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-* buckets
         ]
     },
+    # PGC UAT - Write group
+    'AWS-s3-browser-pgc-UAT': {
+        'buckets': [
+            {'pattern': 'pgcdatalake-uat*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-uat* buckets
+        ]
+    },
     
     # PCIC - Full access to SFTP server bucket
     'AWS-s3browser-PCIC': {
