@@ -199,10 +199,10 @@ GROUP_BUCKET_ACCESS = {
             {'pattern': 'pgcdatalake-*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-* buckets
         ]
     },
-    # PGC UAT - Write group
+    # PGC UAT - Read-only group
     'AWS-s3-browser-pgc-UAT': {
         'buckets': [
-            {'pattern': 'pgcdatalake-uat*', 'permission': 'write'}  # Read + Write + Delete to all pgcdatalake-uat* buckets
+            {'pattern': 'pgcdatalake-uat*', 'permission': 'read'}  # Read-only to all pgcdatalake-uat* buckets
         ]
     },
     
