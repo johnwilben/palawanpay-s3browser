@@ -20,7 +20,7 @@ AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
 
 # Input validation patterns
 BUCKET_NAME_PATTERN = re.compile(r'^[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]$')
-OBJECT_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9!_.*\'()\-\/]+$')
+OBJECT_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9!_.*\'()\-\/ +@#$%&=\[\]{}:,]+$')
 MAX_KEY_LENGTH = 1024
 MAX_KEYS_PER_REQUEST = 1000
 
@@ -131,27 +131,34 @@ GROUP_BUCKET_ACCESS = {
         ]
     },
     
-    # Finance - Mixed permissions
+    # Finance - All 19 users: sandbox (write), staging-common (write), finance-sharepoint (write)
     'AWS-s3-browser-finance': {
         'buckets': [
             {
-                'pattern': 'datalake-uat-ap-southeast-1-502174880086-output-common',
-                'permission': 'read'  # Read-only
-            },
-            {
-                'pattern': 'datalake-uat-ap-southeast-1-502174880086-athena',
-                'permission': 'write',  # Read + Write + Delete
-                'prefix': ''
-            },
-            {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-sandbox',
-                'permission': 'write',  # Read + Write + Delete
-                'prefix': ''
+                'permission': 'write'
             },
             {
                 'pattern': 'datalake-uat-ap-southeast-1-502174880086-staging-common',
-                'permission': 'write',  # Read + Write + Delete
-                'prefix': ''
+                'permission': 'write'
+            },
+            {
+                'pattern': 'finance-palawanpay-sharepoint-backup',
+                'permission': 'write'
+            }
+        ]
+    },
+    
+    # Finance Leads - 7 users: output-common (read), visa-report (read)
+    'AWS-s3-browser-finance-leads': {
+        'buckets': [
+            {
+                'pattern': 'datalake-uat-ap-southeast-1-502174880086-output-common',
+                'permission': 'read'
+            },
+            {
+                'pattern': 'visa-report-paymentology',
+                'permission': 'read'
             }
         ]
     },
@@ -173,16 +180,6 @@ GROUP_BUCKET_ACCESS = {
             {
                 'pattern': 'operations-bucket-backup-sharepoint',
                 'permission': 'write'  # Read + Write + Delete
-            }
-        ]
-    },
-    
-    # Visa - Read-only access
-    'AWS-s3-browser-visa': {
-        'buckets': [
-            {
-                'pattern': 'visa-report-paymentology',
-                'permission': 'read'  # Read-only
             }
         ]
     },
