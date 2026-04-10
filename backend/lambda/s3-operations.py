@@ -10,7 +10,9 @@ from datetime import datetime
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-s3 = boto3.client('s3')
+from botocore.config import Config
+
+s3 = boto3.client('s3', config=Config(signature_version='s3v4'))
 sts = boto3.client('sts')
 identitystore = boto3.client('identitystore')
 sso_admin = boto3.client('sso-admin')
@@ -353,7 +355,8 @@ def get_s3_client(role_arn):
             's3',
             aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
             aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
-            aws_session_token=assumed_role['Credentials']['SessionToken']
+            aws_session_token=assumed_role['Credentials']['SessionToken'],
+            config=Config(signature_version='s3v4')
         )
     return s3
 
