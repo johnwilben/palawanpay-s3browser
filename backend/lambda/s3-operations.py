@@ -228,7 +228,7 @@ GROUP_BUCKET_ACCESS = {
     },
 
     # PPG Magento - Write access to magento bucket
-    'aws-ppg-user-magento': {
+    'aws-ppg-user-magento-s3browser': {
         'buckets': [
             {
                 'pattern': 'magento-backend-media-dev-ap-southeast-1-s3-bucket',
