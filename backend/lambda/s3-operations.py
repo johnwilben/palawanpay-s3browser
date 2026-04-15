@@ -102,7 +102,8 @@ CROSS_ACCOUNT_ROLES = [
     {'account': '236300332446', 'role': 'arn:aws:iam::236300332446:role/S3BrowserCrossAccountRole'},
     {'account': '502174880086', 'role': 'arn:aws:iam::502174880086:role/S3BrowserCrossAccountRole'},
     {'account': '471112740803', 'role': 'arn:aws:iam::471112740803:role/S3BrowserCrossAccountRole'},
-    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'}
+    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
+    {'account': '868495824283', 'role': 'arn:aws:iam::868495824283:role/S3BrowserCrossAccountRole'}
 ]
 
 # Group-based bucket access with permissions
@@ -222,6 +223,17 @@ GROUP_BUCKET_ACCESS = {
                 'pattern': 'test-bucket-confluent-ppay',
                 'permission': 'read',  # Read-only
                 'account': '730335474290'
+            }
+        ]
+    },
+
+    # PPG Magento - Write access to magento bucket
+    'aws-ppg-user-magento': {
+        'buckets': [
+            {
+                'pattern': 'magento-backend-media-dev-ap-southeast-1-s3-bucket',
+                'permission': 'write',
+                'account': '868495824283'
             }
         ]
     }
