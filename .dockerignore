@@ -1,0 +1,9 @@
+Dockerfile
+node_modules
+.git
+.env
+*.md
+docs
+cloudformation
+scripts
+backend

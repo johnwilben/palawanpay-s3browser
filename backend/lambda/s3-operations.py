@@ -20,6 +20,64 @@ sso_admin = boto3.client('sso-admin')
 # Audit log bucket
 AUDIT_BUCKET = 'palawanpay-s3browser-audit-logs'
 
+# Config bucket
+CONFIG_BUCKET = 'palawanpay-s3browser-config'
+CONFIG_KEY = 'groups.json'
+
+# Config cache
+_config_cache = None
+_config_cache_time = 0
+CONFIG_CACHE_TTL = 300  # 5 minutes
+
+
+def load_config():
+    """Load config from S3, with caching"""
+    global _config_cache, _config_cache_time
+    import time
+    now = time.time()
+    if _config_cache and (now - _config_cache_time) < CONFIG_CACHE_TTL:
+        return _config_cache
+    try:
+        obj = s3.get_object(Bucket=CONFIG_BUCKET, Key=CONFIG_KEY)
+        _config_cache = json.loads(obj['Body'].read())
+        _config_cache_time = now
+        logger.info(f"Loaded config: {len(_config_cache.get('groups', {}))} groups, {len(_config_cache.get('cross_account_roles', []))} accounts")
+        return _config_cache
+    except Exception as e:
+        logger.error(f"Failed to load config from S3: {e}")
+        if _config_cache:
+            return _config_cache
+        return {'groups': {}, 'cross_account_roles': [], 'admin_groups': []}
+
+
+def save_config(config):
+    """Save config to S3"""
+    global _config_cache, _config_cache_time
+    s3.put_object(
+        Bucket=CONFIG_BUCKET,
+        Key=CONFIG_KEY,
+        Body=json.dumps(config, indent=2),
+        ContentType='application/json'
+    )
+    _config_cache = config
+    _config_cache_time = __import__('time').time()
+    logger.info("Config saved to S3")
+
+
+def get_cross_account_roles():
+    config = load_config()
+    return config.get('cross_account_roles', [])
+
+
+def get_group_bucket_access():
+    config = load_config()
+    return config.get('groups', {})
+
+
+def get_admin_groups():
+    config = load_config()
+    return config.get('admin_groups', ['AWS Super Administrators', 'AWS Administrators'])
+
 # Input validation patterns
 BUCKET_NAME_PATTERN = re.compile(r'^[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]$')
 OBJECT_KEY_PATTERN = re.compile(r'^[a-zA-Z0-9!_.*\'()\-\/ +@#$%&=\[\]{}:,]+$')
@@ -98,14 +156,11 @@ IAM_IDENTITY_CENTER_INSTANCE_ARN = 'arn:aws:sso:::instance/ssoins-96677c10e5'
 
 # Cross-account configuration
 CROSS_ACCOUNT_ROLES = [
-    {'account': '721010870103', 'role': None},  # Primary account
-    {'account': '236300332446', 'role': 'arn:aws:iam::236300332446:role/S3BrowserCrossAccountRole'},
-    {'account': '502174880086', 'role': 'arn:aws:iam::502174880086:role/S3BrowserCrossAccountRole'},
-    {'account': '471112740803', 'role': 'arn:aws:iam::471112740803:role/S3BrowserCrossAccountRole'},
-    {'account': '730335474290', 'role': 'arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole'},
-    {'account': '868495824283', 'role': 'arn:aws:iam::868495824283:role/S3BrowserCrossAccountRole'},
-    {'account': '940381605806', 'role': 'arn:aws:iam::940381605806:role/S3BrowserCrossAccountRole'}
+    {'account': '721010870103', 'role': None},  # Primary account - fallback
 ]
+
+# Fallback - used if S3 config not available
+GROUP_BUCKET_ACCESS = {}
 
 # Group-based bucket access with permissions
 # Permission levels:
@@ -320,12 +375,13 @@ def get_user_permissions_for_bucket(bucket_name, user_groups, prefix=''):
     """Get highest permission level user has for a bucket and optional prefix"""
     max_permission = None
     allowed_prefix = None
+    group_access = get_group_bucket_access()
     
     for group in user_groups:
-        if group not in GROUP_BUCKET_ACCESS:
+        if group not in group_access:
             continue
         
-        group_config = GROUP_BUCKET_ACCESS[group]
+        group_config = group_access[group]
         buckets = group_config.get('buckets', [])
         
         for bucket_rule in buckets:
@@ -380,7 +436,7 @@ def get_s3_client(role_arn):
 
 def get_client_for_bucket(bucket):
     """Get correct S3 client for bucket by checking each account"""
-    for config in CROSS_ACCOUNT_ROLES:
+    for config in get_cross_account_roles():
         try:
             s3_client = get_s3_client(config['role'])
             s3_client.head_bucket(Bucket=bucket)
@@ -500,6 +556,10 @@ def lambda_handler(event, context):
             if not validate_bucket_name(bucket):
                 return response(400, {'error': 'Invalid bucket name'})
             return generate_download_url(bucket, event)
+        elif path == '/admin/config' and method == 'GET':
+            return admin_get_config(event)
+        elif path == '/admin/config' and method == 'PUT':
+            return admin_save_config(event)
         else:
             return response(404, {'error': 'Not found'})
     except Exception as e:
@@ -528,11 +588,11 @@ def list_buckets(event):
     
     all_buckets = []
     
-    logger.info(f"[{request_id}] Processing {len(CROSS_ACCOUNT_ROLES)} accounts")
+    logger.info(f"[{request_id}] Processing {len(get_cross_account_roles())} accounts")
     
     # Process all accounts in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(process_account, config, user_groups) for config in CROSS_ACCOUNT_ROLES]
+        futures = [executor.submit(process_account, config, user_groups) for config in get_cross_account_roles()]
         
         for future in as_completed(futures):
             try:
@@ -1059,3 +1119,56 @@ def response(status_code, body):
         },
         'body': json.dumps(body)
     }
+
+
+def is_admin(event):
+    """Check if user is in admin group"""
+    user_groups = get_user_groups_from_token(event)
+    admin_groups = get_admin_groups()
+    return any(g in admin_groups for g in user_groups)
+
+
+def admin_get_config(event):
+    """GET /admin/config - return current config"""
+    if not is_admin(event):
+        return response(403, {'error': 'Admin access required'})
+    config = load_config()
+    return response(200, config)
+
+
+def admin_save_config(event):
+    """PUT /admin/config - save updated config"""
+    if not is_admin(event):
+        return response(403, {'error': 'Admin access required'})
+    try:
+        body = json.loads(event.get('body', '{}'))
+    except:
+        return response(400, {'error': 'Invalid JSON'})
+
+    # Validate structure
+    if 'groups' not in body or 'cross_account_roles' not in body:
+        return response(400, {'error': 'Config must have groups and cross_account_roles'})
+
+    # Validate groups format
+    for name, group in body['groups'].items():
+        if 'buckets' not in group:
+            return response(400, {'error': f'Group {name} must have buckets array'})
+        for b in group['buckets']:
+            if 'pattern' not in b or 'permission' not in b:
+                return response(400, {'error': f'Each bucket in {name} must have pattern and permission'})
+            if b['permission'] not in ('read', 'write'):
+                return response(400, {'error': f'Permission must be read or write in {name}'})
+
+    # Validate cross_account_roles format
+    for role in body['cross_account_roles']:
+        if 'account' not in role:
+            return response(400, {'error': 'Each cross_account_role must have account'})
+
+    # Ensure admin_groups exists
+    if 'admin_groups' not in body:
+        body['admin_groups'] = ['AWS Super Administrators', 'AWS Administrators', 'AWS-s3-browser-admin']
+
+    save_config(body)
+    user_email = get_user_email(event)
+    log_audit('ADMIN_CONFIG_UPDATE', user_email, CONFIG_BUCKET, CONFIG_KEY, {'action': 'config_updated'})
+    return response(200, {'message': 'Config saved successfully'})

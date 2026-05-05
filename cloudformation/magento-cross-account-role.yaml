@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 Browser Cross-Account Role for Magento buckets
+
+Resources:
+  S3BrowserCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: S3BrowserCrossAccountRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::721010870103:role/S3BrowserLambdaRole'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3BucketAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource: 'arn:aws:s3:::magento-backend-media-*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: 'arn:aws:s3:::magento-backend-media-*/*'
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: '*'
+                Condition:
+                  StringLike:
+                    kms:ViaService: 's3.ap-southeast-1.amazonaws.com'

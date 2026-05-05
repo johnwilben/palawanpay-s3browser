@@ -1,0 +1,84 @@
+{
+  "cross_account_roles": [
+    {"account": "721010870103", "role": null, "name": "Primary (PalawanPay)"},
+    {"account": "236300332446", "role": "arn:aws:iam::236300332446:role/S3BrowserCrossAccountRole", "name": "Account 236300332446"},
+    {"account": "502174880086", "role": "arn:aws:iam::502174880086:role/S3BrowserCrossAccountRole", "name": "Datalake UAT"},
+    {"account": "471112740803", "role": "arn:aws:iam::471112740803:role/S3BrowserCrossAccountRole", "name": "Account 471112740803"},
+    {"account": "730335474290", "role": "arn:aws:iam::730335474290:role/S3BrowserCrossAccountRole", "name": "Test Confluent"},
+    {"account": "868495824283", "role": "arn:aws:iam::868495824283:role/S3BrowserCrossAccountRole", "name": "Magento PRD"},
+    {"account": "940381605806", "role": "arn:aws:iam::940381605806:role/S3BrowserCrossAccountRole", "name": "Magento DEV"}
+  ],
+  "groups": {
+    "AWS-s3-browser-admin": {
+      "description": "Full admin access to all buckets",
+      "buckets": [{"pattern": "*", "permission": "write"}]
+    },
+    "AWS Super Administrators": {
+      "description": "Full admin access to all buckets",
+      "buckets": [{"pattern": "*", "permission": "write"}]
+    },
+    "AWS Administrators": {
+      "description": "Full admin access to all buckets",
+      "buckets": [{"pattern": "*", "permission": "write"}]
+    },
+    "AWS-s3-browser-datalake-read": {
+      "description": "Read-only access to all datalake buckets",
+      "buckets": [{"pattern": "datalake-*", "permission": "read"}]
+    },
+    "AWS-s3-browser-datalake-write": {
+      "description": "Full access to all datalake buckets",
+      "buckets": [{"pattern": "datalake-*", "permission": "write"}]
+    },
+    "AWS-s3-browser-finance": {
+      "description": "Finance team - sandbox, staging-common, sharepoint backup",
+      "buckets": [
+        {"pattern": "datalake-uat-ap-southeast-1-502174880086-sandbox", "permission": "write"},
+        {"pattern": "datalake-uat-ap-southeast-1-502174880086-staging-common", "permission": "write"},
+        {"pattern": "finance-palawanpay-sharepoint-backup", "permission": "write"}
+      ]
+    },
+    "AWS-s3-browser-finance-leads": {
+      "description": "Finance leads - output-common, visa-report (read only)",
+      "buckets": [
+        {"pattern": "datalake-uat-ap-southeast-1-502174880086-output-common", "permission": "read"},
+        {"pattern": "visa-report-paymentology", "permission": "read"}
+      ]
+    },
+    "AWS-s3-browser-finance-GL": {
+      "description": "Finance GL - megalink folder only (read)",
+      "buckets": [{"pattern": "datalake-uat-ap-southeast-1-502174880086-raw-megalink", "permission": "read", "prefix": "megalink-wkf01/transaction-gl/"}]
+    },
+    "AWS-s3-browser-archive-treasury": {
+      "description": "Archive Treasury - sharepoint backup",
+      "buckets": [{"pattern": "operations-bucket-backup-sharepoint", "permission": "write"}]
+    },
+    "AWS-s3-browser-pgc-read": {
+      "description": "PGC Datalake read-only",
+      "buckets": [{"pattern": "pgcdatalake-*", "permission": "read"}]
+    },
+    "AWS-s3-browser-pgc-write": {
+      "description": "PGC Datalake full access",
+      "buckets": [{"pattern": "pgcdatalake-*", "permission": "write"}]
+    },
+    "AWS-s3-browser-pgc-UAT": {
+      "description": "PGC UAT read-only",
+      "buckets": [{"pattern": "pgcdatalake-uat*", "permission": "read"}]
+    },
+    "AWS-s3browser-PCIC": {
+      "description": "PCIC - Full access to SFTP server bucket",
+      "buckets": [{"pattern": "s3-sftpserver", "permission": "write"}]
+    },
+    "AWS-s3-browser-test-confluent": {
+      "description": "Test Confluent - read only",
+      "buckets": [{"pattern": "test-bucket-confluent-ppay", "permission": "read", "account": "730335474290"}]
+    },
+    "aws-ppg-user-magento-s3browser": {
+      "description": "PPG Magento - prd and dev buckets",
+      "buckets": [
+        {"pattern": "magento-backend-media-prd-ap-southeast-1-s3-bucket", "permission": "write", "account": "868495824283"},
+        {"pattern": "magento-backend-media-dev-ap-southeast-1-s3-bucket", "permission": "write", "account": "940381605806"}
+      ]
+    }
+  },
+  "admin_groups": ["AWS Super Administrators", "AWS Administrators", "AWS-s3-browser-admin"]
+}
