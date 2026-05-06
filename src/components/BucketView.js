@@ -6,6 +6,7 @@ import DeleteConfirmModal from './DeleteConfirmModal';
 import DestinationPickerModal from './DestinationPickerModal';
 import PromptModal from './PromptModal';
 import RecentActivities from './RecentActivities';
+import FilePreviewModal from './FilePreviewModal';
 
 function BucketView() {
   const { bucketName } = useParams();
@@ -28,6 +29,7 @@ function BucketView() {
   const [destinationModalOpen, setDestinationModalOpen] = useState(false);
   const [copyMoveAction, setCopyMoveAction] = useState(null);
   const [toast, setToast] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     loadBucketContents(currentPrefix);
@@ -651,7 +653,7 @@ function BucketView() {
                   onChange={() => toggleFileSelection(file.key)}
                   style={{width: '18px', height: '18px', cursor: 'pointer'}}
                 />
-                <div>
+                <div style={{cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>
                   <div className="file-name">📄 {file.name}</div>
                   <div className="file-size">
                     {(file.size / 1024).toFixed(2)} KB
@@ -794,8 +796,8 @@ function BucketView() {
                   cursor: 'pointer'
                 }}
               />
-              <div style={{fontSize: '48px', marginBottom: '0.5rem'}}>📄</div>
-              <div className="grid-card-text">
+              <div style={{fontSize: '48px', marginBottom: '0.5rem', cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>📄</div>
+              <div className="grid-card-text" style={{cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>
                 {file.name}
               </div>
               <div className="grid-card-size">
@@ -910,6 +912,15 @@ function BucketView() {
       />
 
       <RecentActivities bucketName={bucketName} />
+
+      {previewFile && (
+        <FilePreviewModal
+          file={previewFile}
+          bucketName={bucketName}
+          onClose={() => setPreviewFile(null)}
+          onDownload={(f) => { handleDownload(f.key); setPreviewFile(null); }}
+        />
+      )}
     </div>
   );
 }
