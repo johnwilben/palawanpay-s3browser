@@ -654,7 +654,11 @@ function BucketView() {
                   style={{width: '18px', height: '18px', cursor: 'pointer'}}
                 />
                 <div style={{cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>
-                  <div className="file-name">📄 {file.name}</div>
+                  <div className="file-name" style={{color: '#007aff', textDecoration: 'none'}} 
+                    onMouseEnter={e => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+                    👁️ {file.name}
+                  </div>
                   <div className="file-size">
                     {(file.size / 1024).toFixed(2)} KB
                     {file.lastModified && (
@@ -797,8 +801,11 @@ function BucketView() {
                 }}
               />
               <div style={{fontSize: '48px', marginBottom: '0.5rem', cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>📄</div>
-              <div className="grid-card-text" style={{cursor: 'pointer'}} onClick={() => setPreviewFile(file)}>
-                {file.name}
+              <div className="grid-card-text" style={{cursor: 'pointer', color: '#007aff'}} 
+                onClick={() => setPreviewFile(file)}
+                onMouseEnter={e => e.target.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+                👁️ {file.name}
               </div>
               <div className="grid-card-size">
                 {(file.size / 1024).toFixed(2)} KB
