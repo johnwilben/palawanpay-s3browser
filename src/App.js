@@ -8,6 +8,7 @@ import BucketList from './components/BucketList';
 import BucketView from './components/BucketView';
 import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
+import AdminPanel from './components/AdminPanel';
 import DisclaimerModal from './components/DisclaimerModal';
 import { DarkModeProvider, useDarkMode } from './DarkModeContext';
 
@@ -111,6 +112,7 @@ function AppContent({ signOut, user }) {
             <Route path="/" element={<BucketList user={user} />} />
             <Route path="/bucket/:bucketName" element={<BucketView user={user} />} />
             <Route path="/bucket/:bucketName/upload" element={<UploadPage user={user} />} />
+            <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
