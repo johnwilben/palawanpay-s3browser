@@ -103,6 +103,7 @@ function AppContent({ signOut, user }) {
             </button>
             <div className="user-info">
               <span>Happy Palawan Day, {user?.attributes?.name || user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
+              <a href="/admin" style={{background:'rgba(255,255,255,0.2)',color:'#fff',border:'none',borderRadius:8,padding:'6px 12px',fontSize:12,cursor:'pointer',textDecoration:'none',fontWeight:600}} title="Admin Panel">⚙️</a>
               <button onClick={signOut} className="btn-signout">Sign Out</button>
             </div>
           </div>

@@ -72,7 +72,7 @@ function AdminPanel() {
   };
 
   if (loading) return <div style={s.page}><div style={s.loader}>Loading admin config...</div></div>;
-  if (error && !config) return <div style={s.page}><div style={s.error}>❌ {error}</div></div>;
+  if (error && !config) return <div style={s.page}><div style={s.error}>❌ {error}<br/><br/><a href="/" style={{color:'#007aff'}}>← Back to S3 Browser</a></div></div>;
 
   return (
     <div style={s.page}>
