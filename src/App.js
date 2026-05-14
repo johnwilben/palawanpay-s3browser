@@ -9,6 +9,24 @@ import BucketView from './components/BucketView';
 import UploadPage from './components/UploadPage';
 import HelpButton from './components/HelpButton';
 import AdminPanel from './components/AdminPanel';
+
+function AdminOverlay() {
+  const [show, setShow] = React.useState(false);
+  React.useEffect(() => {
+    const handler = () => setShow(prev => !prev);
+    window.addEventListener('toggleAdmin', handler);
+    return () => window.removeEventListener('toggleAdmin', handler);
+  }, []);
+  if (!show) return null;
+  return (
+    <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',zIndex:9998,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={() => setShow(false)}>
+      <div style={{background:'#fff',borderRadius:16,width:'90vw',maxWidth:1000,maxHeight:'85vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'flex-end',padding:'12px 16px 0'}}><button onClick={() => setShow(false)} style={{background:'#e5e5ea',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:16}}>✕</button></div>
+        <AdminPanel />
+      </div>
+    </div>
+  );
+}
 import DisclaimerModal from './components/DisclaimerModal';
 import { DarkModeProvider, useDarkMode } from './DarkModeContext';
 
@@ -103,17 +121,17 @@ function AppContent({ signOut, user }) {
             </button>
             <div className="user-info">
               <span>Happy Palawan Day, {user?.attributes?.name || user?.signInDetails?.loginId || user?.username?.replace('IAMIdentityCenter_', '') || user?.attributes?.email}</span>
-              <a href="/admin" style={{background:'rgba(255,255,255,0.2)',color:'#fff',border:'none',borderRadius:8,padding:'6px 12px',fontSize:12,cursor:'pointer',textDecoration:'none',fontWeight:600}} title="Admin Panel">⚙️</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); window.__showAdmin = !window.__showAdmin; window.dispatchEvent(new Event('toggleAdmin')); }} style={{background:'rgba(255,255,255,0.2)',color:'#fff',border:'none',borderRadius:8,padding:'6px 12px',fontSize:12,cursor:'pointer',textDecoration:'none',fontWeight:600}} title="Admin Panel">⚙️</a>
               <button onClick={signOut} className="btn-signout">Sign Out</button>
             </div>
           </div>
         </header>
+        <AdminOverlay />
         <main className="app-main">
           <Routes>
             <Route path="/" element={<BucketList user={user} />} />
             <Route path="/bucket/:bucketName" element={<BucketView user={user} />} />
             <Route path="/bucket/:bucketName/upload" element={<UploadPage user={user} />} />
-            <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
