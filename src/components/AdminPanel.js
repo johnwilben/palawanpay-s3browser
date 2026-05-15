@@ -74,12 +74,18 @@ function AdminPanel() {
   if (loading) return <div style={s.page}><div style={s.loader}>Loading admin config...</div></div>;
   if (error && !config) return <div style={s.page}><div style={s.error}>❌ {error}<br/><br/><a href="/" style={{color:'#007aff'}}>← Back to S3 Browser</a></div></div>;
 
+  const [showHelp, setShowHelp] = useState(false);
+
   return (
     <div style={s.page}>
       <div style={s.header}>
         <h1 style={s.title}>⚙️ S3 Browser Admin</h1>
-        <button style={s.saveBtn} onClick={saveConfig} disabled={saving}>{saving ? 'Saving...' : '💾 Save Config'}</button>
+        <div style={{display:'flex',gap:8}}>
+          <button style={s.helpBtn} onClick={() => setShowHelp(!showHelp)}>{showHelp ? 'Hide Help' : '❓ Help'}</button>
+          <button style={s.saveBtn} onClick={saveConfig} disabled={saving}>{saving ? 'Saving...' : '💾 Save Config'}</button>
+        </div>
       </div>
+      {showHelp && <HelpSection />}
       {error && <div style={s.error}>❌ {error}</div>}
       {success && <div style={s.success}>✅ {success}</div>}
       <div style={s.tabs}>
@@ -175,11 +181,66 @@ function GroupEditor({ group, onChange }) {
   );
 }
 
+function HelpSection() {
+  return (
+    <div style={{background:'#f0f4ff',border:'1px solid #c7d2fe',borderRadius:12,padding:20,marginBottom:20,fontSize:13,lineHeight:1.7}}>
+      <h3 style={{margin:'0 0 12px',fontSize:15}}>📖 How to use the Admin Panel</h3>
+
+      <h4 style={{margin:'12px 0 4px',color:'#1c1c1e'}}>Give a group access to a bucket:</h4>
+      <ol style={{margin:0,paddingLeft:20}}>
+        <li>Go to <b>Groups</b> tab → click on the group to expand</li>
+        <li>Click <b>"+ Add Bucket Rule"</b></li>
+        <li>Fill in: <b>Bucket pattern</b> (exact name or wildcard like <code>datalake-*</code>)</li>
+        <li>Set <b>Permission</b>: Read (view/download) or Write (full access)</li>
+        <li>Optional: <b>Account</b> (if bucket is in another AWS account)</li>
+        <li>Optional: <b>Prefix</b> (restrict to a specific folder path)</li>
+        <li>Click <b>💾 Save Config</b></li>
+      </ol>
+
+      <h4 style={{margin:'12px 0 4px',color:'#1c1c1e'}}>Create a new group:</h4>
+      <ol style={{margin:0,paddingLeft:20}}>
+        <li>Click <b>"+ Add Group"</b></li>
+        <li>Enter group name — <b>must match exactly</b> with IAM Identity Center (case-sensitive)</li>
+        <li>Add bucket rules</li>
+        <li>Save → then create the same group in IAM Identity Center and assign users</li>
+      </ol>
+
+      <h4 style={{margin:'12px 0 4px',color:'#1c1c1e'}}>Add a new AWS account:</h4>
+      <ol style={{margin:0,paddingLeft:20}}>
+        <li>Go to <b>Accounts</b> tab</li>
+        <li>Enter 12-digit Account ID + friendly name</li>
+        <li>Click <b>"+ Add Account"</b> → Save</li>
+        <li>Then in that account: create <code>S3BrowserCrossAccountRole</code> (use CloudFormation template)</li>
+        <li>Role must trust <code>arn:aws:iam::721010870103:role/S3BrowserLambdaRole</code></li>
+      </ol>
+
+      <h4 style={{margin:'12px 0 4px',color:'#1c1c1e'}}>Bucket pattern examples:</h4>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,marginTop:4}}>
+        <thead><tr style={{background:'#e8ecf4'}}><th style={{padding:'6px 8px',textAlign:'left'}}>Pattern</th><th style={{padding:'6px 8px',textAlign:'left'}}>Matches</th></tr></thead>
+        <tbody>
+          <tr><td style={{padding:'4px 8px'}}><code>my-bucket</code></td><td style={{padding:'4px 8px'}}>Exact bucket name</td></tr>
+          <tr><td style={{padding:'4px 8px'}}><code>datalake-*</code></td><td style={{padding:'4px 8px'}}>All buckets starting with "datalake-"</td></tr>
+          <tr><td style={{padding:'4px 8px'}}><code>*</code></td><td style={{padding:'4px 8px'}}>All buckets (admin only)</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style={{margin:'12px 0 4px',color:'#1c1c1e'}}>Important notes:</h4>
+      <ul style={{margin:0,paddingLeft:20}}>
+        <li>Changes take effect within <b>5 minutes</b> (config is cached)</li>
+        <li>Users must <b>log out and log back in</b> after group changes in IAM Identity Center</li>
+        <li>Group names are <b>case-sensitive</b></li>
+        <li>All config changes are <b>audit logged</b></li>
+      </ul>
+    </div>
+  );
+}
+
 const s = {
   page: { maxWidth: 1000, margin: '0 auto', padding: '24px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   title: { fontSize: 22, fontWeight: 600, margin: 0 },
   saveBtn: { padding: '10px 24px', background: '#34c759', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  helpBtn: { padding: '10px 16px', background: '#e5e5ea', color: '#1c1c1e', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' },
   tabs: { display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e5e5ea', paddingBottom: 8 },
   tab: { padding: '8px 16px', background: 'none', border: 'none', color: '#8e8e93', cursor: 'pointer', fontSize: 14, borderRadius: 8 },
   tabActive: { padding: '8px 16px', background: '#007aff', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, borderRadius: 8, fontWeight: 600 },
