@@ -71,10 +71,10 @@ function AdminPanel() {
     setConfig(prev => ({ ...prev, cross_account_roles: prev.cross_account_roles.filter((_, i) => i !== idx) }));
   };
 
+  const [showHelp, setShowHelp] = useState(false);
+
   if (loading) return <div style={s.page}><div style={s.loader}>Loading admin config...</div></div>;
   if (error && !config) return <div style={s.page}><div style={s.error}>❌ {error}<br/><br/><a href="/" style={{color:'#007aff'}}>← Back to S3 Browser</a></div></div>;
-
-  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <div style={s.page}>
