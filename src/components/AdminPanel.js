@@ -263,7 +263,7 @@ const s = {
   delBtnSm: { background: '#ff3b30', color: '#fff', border: 'none', borderRadius: 6, width: 24, height: 24, cursor: 'pointer', fontSize: 12 },
   addBtnSm: { padding: '6px 12px', background: '#e5e5ea', color: '#1c1c1e', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', marginTop: 4 },
   error: { padding: '12px 16px', background: '#fff2f2', color: '#ff3b30', borderRadius: 8, marginBottom: 16, fontSize: 13 },
-  success: { padding: '12px 16px', background: '#f0fff4', color: '#34c759', borderRadius: 8, marginBottom: 16, fontSize: 13 },
+  success: { position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', padding: '14px 28px', background: '#34c759', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(52,199,89,0.4)' },
   loader: { textAlign: 'center', padding: 48, color: '#8e8e93' }
 };
 
